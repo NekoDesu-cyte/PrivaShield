@@ -1,7 +1,7 @@
 {
 	"info": {
-		"_postman_id": "blurify-ai-api",
-		"name": "Blurify AI API",
+		"_postman_id": "privashield-ai-api",
+		"name": "PrivaShield AI API",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -10,14 +10,27 @@
 			"request": {
 				"method": "GET",
 				"url": {
-					"raw": "{{base_url}}/health",
+					"raw": "{{base_url}}/",
 					"host": ["{{base_url}}"],
-					"path": ["health"]
+					"path": [""]
 				}
 			}
 		},
 		{
 			"name": "Process Image",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"pm.globals.set(\"last_image_id\", jsonData.image_id);",
+							"pm.globals.set(\"sample_bbox\", jsonData.detected_entities[0] ? jsonData.detected_entities[0].bbox : [0,0,0,0]);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
 			"request": {
 				"method": "POST",
 				"body": {
@@ -26,6 +39,7 @@
 						{
 							"key": "file",
 							"type": "file",
+							"src": "",
 							"description": "Image file to process (JPG/PNG)"
 						}
 					]
@@ -41,10 +55,15 @@
 			"name": "Finalize Image",
 			"request": {
 				"method": "POST",
-				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"image_id\": \"PASTE_UUID_HERE\",\n    \"blur_areas\": [\n        [100, 150, 200, 50]\n    ]\n}",
+					"raw": "{\n    \"image_id\": \"{{last_image_id}}\",\n    \"blur_areas\": [\n        {\n            \"x\": 100,\n            \"y\": 200,\n            \"w\": 150,\n            \"h\": 40\n        }\n    ]\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -55,6 +74,17 @@
 					"raw": "{{base_url}}/api/image/finalize",
 					"host": ["{{base_url}}"],
 					"path": ["api", "image", "finalize"]
+				}
+			}
+		},
+		{
+			"name": "Download Result",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/api/image/download/{{last_image_id}}_proc.png",
+					"host": ["{{base_url}}"],
+					"path": ["api", "image", "download", "{{last_image_id}}_proc.png"]
 				}
 			}
 		}
