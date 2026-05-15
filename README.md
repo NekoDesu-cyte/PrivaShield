@@ -22,6 +22,7 @@ PrivaShield is a web application that automatically detects and masks personally
 
 - Python 3.9+
 - Pip (Python Package Manager)
+- [asc CLI](https://github.com/App-Store-Connect-CLI/asc) (Optional, for automated workflows)
 
 ## 🏁 Quick Start
 
