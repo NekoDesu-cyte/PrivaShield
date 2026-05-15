@@ -61,7 +61,7 @@ The pipeline generates high-contrast visualizations for the frontend team to ref
 
 | Original with Detection | Final Masked Result |
 |---|---|
-| ![Detection Example](https://github.com/user-attachments/assets/67055c1b-2624-469b-98b6-96b48873428d) | ![Masked Example](https://github.com/user-attachments/assets/67055c1b-2624-469b-98b6-96b48873428d) |
+| ![Detection Example](backend/test/Test-Image-PII-2.PNG) | ![Masked Example](backend/test/Test-Image-PII-2.PNG) |
 
 *Processing based on `backend/test/Test-Image-PII-2.PNG`*
 
