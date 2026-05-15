@@ -69,7 +69,7 @@ The pipeline generates high-contrast visualizations for the frontend team to ref
 | <img src="backend/test/Test-Image-PII-1.PNG" alt="Detection Example 1" width="400"> | <img src="tests/output-result-1.png" alt="Masked Example 1"> |
 | <img src="backend/test/Test-Image-PII-2.PNG" alt="Detection Example 2" width="400"> | <img src="tests/output-result.png" alt="Masked Example 2"> |
 | <img src="backend/test/Test-Image-PII-3.PNG" alt="Detection Example 3" width="400"> | <img src="tests/output-result-3.png" alt="Masked Example 3"> |
-| <img src="backend/test/Test-Image-PII-4.PNG" alt="Detection Example 4" width="400"> | <img src="tests/output-result-4.png" alt="Masked Example 4"> |
+| <img src="backend/test/Test-Image-PII-4.png" alt="Detection Example 4" width="400"> | <img src="tests/output-result-4.png" alt="Masked Example 4"> |
 
 *Processing based on `backend/test/Test-Image-PII-2.PNG`*
 
