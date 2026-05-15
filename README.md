@@ -49,9 +49,12 @@ asc workflow run run-backend
 ```
 
 ### 3. Manual Server Execution
+To run the server manually, ensure you set the `PYTHONPATH` so the `app` module can be found:
 ```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# From the project root directory
+export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
+source backend/venv/bin/activate
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## 🧪 Testing & Development
