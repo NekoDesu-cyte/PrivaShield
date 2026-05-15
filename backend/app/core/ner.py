@@ -85,7 +85,7 @@ class NERProcessor:
         person_triggers = {"si", "sama", "dari", "tim", "nama", "halo", "hai", "pak", "bu", "mbak", "mas"}
         
         # Blacklist for specific words that should NEVER be blurred as NAME (common false positives)
-        name_blacklist = {"makasih", "terima", "kasih", "ya", "oke", "sip", "dah", "sudah"}
+        name_blacklist = {"makasih", "terima", "kasih", "ya", "oke", "sip", "dah", "sudah", "maka", "hei", "he"}
         
         try:
             ner_results = self.nlp(text)
@@ -95,12 +95,23 @@ class NERProcessor:
                 ent_text = entity['word']
                 
                 if entity['entity_group'] == 'PER':
-                    # Context-aware threshold for names
-                    # Check text preceding the entity for triggers
+                    # Dynamic threshold for names
                     pre_context = text[max(0, entity['start']-15):entity['start']].lower()
                     has_trigger = any(trigger in pre_context for trigger in person_triggers)
                     
-                    if (score > 0.8 or (has_trigger and score > 0.4)) and ent_text.lower() not in name_blacklist:
+                    # SYSTEMIC PRECISION FIXES:
+                    # 1. Whole Word Check: Ensure the detected fragment isn't just part of a larger word
+                    #    Check character immediately after the match
+                    is_fragment = False
+                    if entity['end'] < len(text):
+                        next_char = text[entity['end']]
+                        if next_char.isalnum():
+                            is_fragment = True
+                            
+                    # 2. Length Constraint: Names are rarely < 3 chars in this context unless triggered
+                    is_short = len(ent_text) < 3 and not has_trigger
+
+                    if (score > 0.8 or (has_trigger and score > 0.4)) and not is_fragment and not is_short and ent_text.lower() not in name_blacklist:
                         label = "NAME"
                 elif entity['entity_group'] in ['LOC', 'GPE'] and score > 0.4:
                     label = "ADDRESS"
