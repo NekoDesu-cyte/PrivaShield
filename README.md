@@ -75,10 +75,10 @@ The pipeline generates side-by-side visualizations (Original with Precise Detect
 
 | Side-by-Side Comparison (Detection & Result) |
 |---|
-| <img src="tests/test_outputs/result_Test-Image-PII-1.PNG" alt="Test Result 1" width="800"> |
-| <img src="tests/test_outputs/result_Test-Image-PII-2.PNG" alt="Test Result 2" width="800"> |
-| <img src="tests/test_outputs/result_Test-Image-PII-3.PNG" alt="Test Result 3" width="800"> |
-| <img src="tests/test_outputs/result_Test-Image-PII-4.png" alt="Test Result 4" width="800"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-1.PNG" alt="Test Result 1" width="400"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-2.PNG" alt="Test Result 2" width="400"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-3.PNG" alt="Test Result 3" width="400"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-4.png" alt="Test Result 4" width="400"> |
 
 *Results generated using the latest IndoBERT + Regex Hybrid engine with Contextual Name Boosting.*
 
