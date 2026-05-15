@@ -36,16 +36,40 @@ async def process_image(file: UploadFile = File(...)):
         detected_entities = []
         
         for (bbox, text, prob) in results:
-            label = ner.detect_pii(text)
-            if label:
+            pii_matches = ner.detect_pii_granular(text)
+            
+            if pii_matches:
+                # Get coordinates of the full OCR block
                 x_min = int(min([p[0] for p in bbox]))
                 y_min = int(min([p[1] for p in bbox]))
                 x_max = int(max([p[0] for p in bbox]))
                 y_max = int(max([p[1] for p in bbox]))
-                w, h = x_max - x_min, y_max - y_min
-                detected_entities.append(Entity(
-                    text=text, label=label, bbox=[x_min, y_min, w, h], confidence=float(prob)
-                ))
+                w_full, h_full = x_max - x_min, y_max - y_min
+                
+                text_len = len(text)
+                if text_len == 0: continue
+
+                for match in pii_matches:
+                    # Calculate granular bounding box for the specific PII word
+                    # We estimate position based on character index ratio
+                    char_width = w_full / text_len
+                    
+                    # Fine-tuned start/end to be slightly generous with padding
+                    x_start = x_min + int(match['start'] * char_width)
+                    x_end = x_min + int(match['end'] * char_width)
+                    
+                    # Ensure we don't exceed the full box boundaries
+                    x_start = max(x_min, x_start)
+                    x_end = min(x_max, x_end)
+                    
+                    sub_w = x_end - x_start
+                    
+                    detected_entities.append(Entity(
+                        text=match['text'], 
+                        label=match['label'], 
+                        bbox=[x_start, y_min, sub_w, h_full], 
+                        confidence=float(prob)
+                    ))
         
         return ProcessResponse(
             status="success",
