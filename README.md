@@ -1,0 +1,70 @@
+# PrivaShield
+
+PrivaShield is a web application that automatically detects and masks personally identifiable information (PII) in digital images using AI. It utilizes OCR for text extraction and a fine-tuned IndoBERT model for Named Entity Recognition (NER) to identify sensitive data like names, addresses, emails, and more.
+
+## 🚀 Features
+
+- **Automated PII Detection**: Uses EasyOCR and IndoBERT to find sensitive information.
+- **Interactive Validation**: Users can review, toggle, or manually add blur areas via the frontend.
+- **High-Contrast Visualization**: Uses high-contrast purple segmentation for clear user interaction.
+- **Secure Image Processing**: Stateless API with automated cleanup of temporary files.
+- **Hybrid Detection**: Combines AI models with robust Regex patterns for maximum reliability.
+
+## 🛠️ Tech Stack
+
+- **Backend**: FastAPI (Python)
+- **AI Models**: IndoBERT (HuggingFace), EasyOCR
+- **Image Processing**: OpenCV
+- **Workflow Automation**: `asc` CLI
+- **Frontend**: React (See `frontend/` directory)
+
+## 📋 Prerequisites
+
+- Python 3.9+
+- Pip (Python Package Manager)
+
+## 🏁 Quick Start
+
+### 1. Setup Backend
+```bash
+cd backend
+pip install -r requirements.txt
+# Download the spacy model if needed (optional if using BERT only)
+python -m spacy download id_core_news_lg
+```
+
+### 2. Run with Automation
+We use `asc` for easy task execution:
+```bash
+# Test the AI NER logic
+asc workflow run test-ner
+
+# Start the backend server
+asc workflow run run-backend
+```
+
+### 3. Manual Server Execution
+```bash
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## 🧪 Testing & Development
+
+### Jupyter Notebook
+Explore the AI pipeline and visualization in `tests/pipeline_test.ipynb`. It simulates the full OCR -> NER -> Blur sequence with sample images.
+
+### API Testing
+- **Postman**: Import `BlurifyAI.postman_collection.json` to test endpoints.
+- **Samples**: Test images are available in `backend/test/`.
+
+## 📖 Documentation
+
+For detailed information on API schemas, frontend implementation, and architecture, see:
+- [Usage Guide](Guide%20Usage.md)
+- [Backend Briefing](backend/Briefing_Backend_SensorDataPribadi.md)
+
+## 👥 Team
+- Group 4 - Kapita Selekta (S1 Rekayasa Perangkat Lunak)
+- Members: Viona, Destu, Haikal, Maulana
+- Academic Year: 2025/2026
