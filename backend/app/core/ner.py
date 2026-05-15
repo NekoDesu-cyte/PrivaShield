@@ -80,9 +80,12 @@ class NERProcessor:
 
         # 3. IndoBERT NER check
         # Stopwords to clean from the start/end of NER results to avoid "Astaga Aldo" issue
-        stopwords = {"astaga", "wah", "halo", "hai", "duh", "loh", "kok", "ia", "si", "bu", "pak", "mbak", "mas", "dari", "sama"}
+        stopwords = {"astaga", "wah", "halo", "hai", "duh", "loh", "kok", "ia", "si", "bu", "pak", "mbak", "mas", "dari", "sama", "makasih", "terima", "kasih"}
         # Triggers that indicate a name might follow (Indonesian context)
         person_triggers = {"si", "sama", "dari", "tim", "nama", "halo", "hai", "pak", "bu", "mbak", "mas"}
+        
+        # Blacklist for specific words that should NEVER be blurred as NAME (common false positives)
+        name_blacklist = {"makasih", "terima", "kasih", "ya", "oke", "sip", "dah", "sudah"}
         
         try:
             ner_results = self.nlp(text)
@@ -96,7 +99,7 @@ class NERProcessor:
                     pre_context = text[max(0, entity['start']-15):entity['start']].lower()
                     has_trigger = any(trigger in pre_context for trigger in person_triggers)
                     
-                    if score > 0.8 or (has_trigger and score > 0.4):
+                    if (score > 0.8 or (has_trigger and score > 0.4)) and ent_text.lower() not in name_blacklist:
                         label = "NAME"
                 elif entity['entity_group'] in ['LOC', 'GPE'] and score > 0.4:
                     label = "ADDRESS"
@@ -144,13 +147,24 @@ class NERProcessor:
             for next_match in pii_results[1:]:
                 # If overlap or very close (within 2 chars like comma/space), merge if both are address-like
                 is_address_merge = ("ADDRESS" in curr['label'] and "ADDRESS" in next_match['label'])
-                if next_match['start'] <= curr['end'] + 2 and is_address_merge:
+                
+                # Check for overlap: if next starts before current ends
+                if next_match['start'] < curr['end']:
+                    # Priority logic: EMAIL/PHONE > USERNAME
+                    if (next_match['label'] in ["EMAIL", "PHONE"]) and (curr['label'] == "USERNAME"):
+                        # Replace current with the stronger match
+                        curr = next_match
+                    elif (curr['label'] in ["EMAIL", "PHONE"]) and (next_match['label'] == "USERNAME"):
+                        # Keep current, ignore the username overlap
+                        continue
+                    else:
+                        # General overlap merge logic
+                        curr['end'] = max(curr['end'], next_match['end'])
+                        curr['text'] = text[curr['start']:curr['end']]
+                elif next_match['start'] <= curr['end'] + 2 and is_address_merge:
                     curr['end'] = max(curr['end'], next_match['end'])
                     curr['text'] = text[curr['start']:curr['end']]
                     curr['label'] = "ADDRESS" # Standardize
-                elif next_match['start'] < curr['end']:
-                    # Overlap but not merging - keep the one already in (regex/earlier)
-                    continue
                 else:
                     final_results.append(curr)
                     curr = next_match
