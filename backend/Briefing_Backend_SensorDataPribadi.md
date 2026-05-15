@@ -74,44 +74,62 @@ backend/
 |---|---|---|---|
 | POST | `/auth/register` | Daftar akun baru | — |
 | POST | `/auth/login` | Login & dapatkan JWT token | — |
-| POST | `/image/process` | Upload gambar → proses otomatis | ✓ |
-| GET | `/image/{id}/result` | Ambil gambar hasil (URL) | ✓ |
-| POST | `/image/{id}/manual-blur` | Tambah area blur manual dari frontend | ✓ |
-| POST | `/image/{id}/validate` | Simpan validasi pengguna (hapus/tambah area) | ✓ |
-| GET | `/image/{id}/download` | Unduh gambar hasil akhir | ✓ |
-| GET | `/history` | Daftar riwayat gambar yang diproses | ✓ |
-| DELETE | `/history/{id}` | Hapus item riwayat | ✓ |
+| POST | `/api/image/process` | Upload gambar → deteksi PII otomatis | ✓ |
+| POST | `/api/image/finalize` | Terapkan blur pada area pilihan & simpan hasil | ✓ |
+| GET | `/api/image/download/{filename}` | Unduh gambar hasil akhir | ✓ |
 
-### 2.3 Skema Request & Response
+### 2.3 Cara Konsumsi API & Skema Data
 
-**`POST /image/process`** — Request `multipart/form-data`:
-- `file`: gambar PNG / JPG / JPEG, maks. 5 MB
+**1. `POST /api/image/process`**
+Endpoint ini digunakan untuk mengunggah gambar dan mendapatkan metadata PII yang terdeteksi.
+- **Content-Type:** `multipart/form-data`
+- **Body:** 
+  - `file`: (Binary image file, max 5MB)
 
-Response:
+**Sample Response:**
 ```json
 {
-  "image_id": "uuid-xxx",
-  "status": "processed",
+  "status": "success",
+  "image_id": "51cab37f-1432-495c-b291-1ddb36d22309",
+  "width": 1280,
+  "height": 720,
+  "all_ocr_text": ["Nama:", "Budi", "Santoso"],
   "detected_entities": [
     {
-      "text": "081234567890",
-      "label": "PHONE",
-      "bbox": [x, y, w, h],
-      "confidence": 0.97
+      "text": "Budi Santoso",
+      "label": "NAME",
+      "bbox": [100, 200, 150, 40],
+      "confidence": 0.98
     }
   ],
-  "result_url": "/image/uuid-xxx/result"
+  "result_url": ""
 }
 ```
 
-**`POST /image/{id}/validate`** — Request `application/json`:
+**2. `POST /api/image/finalize`**
+Endpoint ini digunakan setelah pengguna memvalidasi area mana saja yang ingin di-blur.
+- **Content-Type:** `application/json`
+- **Body:**
 ```json
 {
-  "approved": ["entity_id_1", "entity_id_2"],
-  "rejected": ["entity_id_3"],
-  "manual_areas": [{ "x": 100, "y": 50, "w": 200, "h": 40 }]
+  "image_id": "51cab37f-1432-495c-b291-1ddb36d22309",
+  "blur_areas": [
+    { "x": 100, "y": 200, "w": 150, "h": 40 }
+  ]
 }
 ```
+
+**Sample Response:**
+```json
+{
+  "result_url": "/api/image/download/51cab37f-1432-495c-b291-1ddb36d22309_proc.png"
+}
+```
+
+**3. `GET /api/image/download/{filename}`**
+Mengunduh file hasil pemrosesan.
+- **Param:** `filename` (didapat dari `result_url`)
+- **Response:** File Binary (Image)
 
 ---
 
@@ -140,25 +158,30 @@ NER mengklasifikasikan teks hasil OCR menjadi entitas berlabel. Target label yan
 |---|---|---|
 | `PHONE` | 081234567890, +62-21-123 | Regex + NER |
 | `EMAIL` | user@example.com | Regex (utama) |
-| `NAME` | Budi Santoso, Dr. Ani | Model NER (spaCy/BERT) |
+| `NAME` | Budi Santoso, Dr. Ani | IndoBERT NER |
 | `USERNAME` | @username, user_123 | Regex + konteks |
 | `NIK` | 3271234567890001 | Regex (16 digit) |
-| `ADDRESS` | Jl. Merdeka No. 10, Jakarta | Model NER |
+| `ADDRESS` | Jl. Merdeka No. 10, Jakarta | IndoBERT NER |
+| `URL` | https://... | Regex |
+| `REFERRAL`| code: MARCO2025 | Regex |
 
 **Pilihan Model NER:**
 
-- **Opsi A — spaCy + model Indonesia (IndoNLP):** Ringan, cepat, cocok untuk production awal. Perlu fine-tuning dengan data berlabel untuk akurasi optimal.
-- **Opsi B — `indobenchmark/indobert-base-p2` (HuggingFace):** Akurasi tinggi untuk teks Bahasa Indonesia. Lebih berat, butuh GPU atau inference server terpisah.
-- **Opsi C — Regex Hybrid (wajib dikombinasikan):** Email, nomor telepon, NIK → regex lebih reliabel daripada model. Gabungkan output model + regex untuk coverage maksimal.
+- **IndoBERT NER (Implementasi Saat Ini):** Menggunakan `cahya/bert-base-indonesian-ner`. Akurasi tinggi untuk deteksi Nama (PER) dan Lokasi (LOC) dalam konteks Bahasa Indonesia.
+- **Regex Hybrid (Wajib):** Email, nomor telepon, NIK, URL, dan Referral code menggunakan regex karena lebih reliabel daripada model bahasa untuk pola teks terstruktur.
+
+---
 
 ### 3.3 Tahap 3 — Penerapan Blur
 
-Setelah koordinat sensitif diketahui, blur diterapkan menggunakan OpenCV:
+Setelah koordinat sensitif diketahui, blur diterapkan menggunakan OpenCV.
+
+**Penting:** Koordinat bounding box menggunakan format standar `[x, y, w, h]` (top-left x, top-left y, width, height).
 
 ```python
 import cv2
 
-def apply_blur(image_path, bboxes, blur_strength=31):
+def apply_blur(image_path, bboxes, blur_strength=51):
     img = cv2.imread(image_path)
     for (x, y, w, h) in bboxes:
         roi = img[y:y+h, x:x+w]
@@ -167,10 +190,12 @@ def apply_blur(image_path, bboxes, blur_strength=31):
     return img
 ```
 
-Parameter yang perlu dikonfigurasi:
-- `blur_strength`: 21 (ringan) → 51 (sangat kuat), default `31`
-- Padding tambahan ±5px di sekeliling bounding box untuk mencegah data terpotong
-- Validasi koordinat agar tidak melebihi dimensi gambar
+Parameter yang dikonfigurasi:
+- `blur_strength`: Default `51` (High contrast blur).
+- Padding tambahan ±5px di sekeliling bounding box (opsional).
+- Validasi koordinat agar tidak melebihi dimensi gambar.
+
+---
 
 ### 3.4 Panduan Implementasi Frontend (Bbox & Interaktivitas)
 
@@ -181,7 +206,10 @@ Data `bbox: [x, y, w, h]` dikembalikan dalam satuan **piksel asli gambar**.
 - `x, y`: Koordinat titik kiri atas (top-left).
 - `w, h`: Lebar (width) dan tinggi (height) area.
 
-**2. Sinkronisasi Skala (Scaling):**
+**2. Visualisasi:**
+Disarankan menggunakan warna **High Contrast Purple** (`#800080` atau RGB `128, 0, 128`) untuk overlay kotak agar mudah terlihat oleh pengguna.
+
+**3. Sinkronisasi Skala (Scaling):**
 Karena gambar di browser biasanya di-resize (misal: `max-width: 100%`), frontend harus menghitung rasio skala agar posisi kotak tepat:
 ```javascript
 // Contoh logika scaling di React/JS
@@ -196,7 +224,7 @@ const renderedBox = {
 };
 ```
 
-**3. Interaktivitas:**
+**4. Interaktivitas:**
 - **Toggle:** Frontend menyimpan list `entity_id` yang di-uncheck oleh pengguna untuk dikirim ke endpoint `/image/{id}/validate`.
 - **Manual Blur:** Jika pengguna menggambar kotak baru, ambil koordinatnya, konversi kembali ke skala original (bagi dengan `scaleX/Y`), dan kirim sebagai `manual_areas`.
 
