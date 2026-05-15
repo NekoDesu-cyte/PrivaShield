@@ -25,6 +25,7 @@
 						"exec": [
 							"var jsonData = pm.response.json();",
 							"pm.globals.set(\"last_image_id\", jsonData.image_id);",
+							"pm.globals.set(\"detected_entities\", JSON.stringify(jsonData.detected_entities));",
 							"pm.globals.set(\"sample_bbox\", jsonData.detected_entities[0] ? jsonData.detected_entities[0].bbox : [0,0,0,0]);"
 						],
 						"type": "text/javascript"
