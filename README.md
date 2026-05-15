@@ -61,8 +61,8 @@ The pipeline generates high-contrast visualizations for the frontend team to ref
 
 | Original with Detection | Final Masked Result |
 |---|---|
-| ![Detection Example 1](backend/test/Test-Image-PII-1.PNG) | ![Masked Example 1](tests/output-result-1.png) |
-| ![Detection Example 2](backend/test/Test-Image-PII-2.PNG) | ![Masked Example 2](tests/output-result.png) |
+| <img src="backend/test/Test-Image-PII-1.PNG" width="400"> | <img src="tests/output-result-1.png" width="400"> |
+| <img src="backend/test/Test-Image-PII-2.PNG" width="400"> | <img src="tests/output-result.png" width="400"> |
 
 *Processing based on `backend/test/Test-Image-PII-2.PNG`*
 
