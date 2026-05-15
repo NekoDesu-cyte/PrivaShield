@@ -1,4 +1,4 @@
-# Guide Usage - PrivaShield
+# Guide Usage - Blurify AI
 
 ## 1. Quick Start with `asc workflow`
 We use `asc` for automated workflows.

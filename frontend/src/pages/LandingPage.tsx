@@ -141,7 +141,7 @@ const AppPage: React.FC = () => {
     
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = "PrivaShield_Protected_Image.png";
+    link.download = "BlurifyAI_Protected_Image.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -175,7 +175,7 @@ const AppPage: React.FC = () => {
       <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0 z-10 relative">
         <div className="flex items-center gap-2">
           <Shield className="text-[#0D52E9] w-6 h-6" />
-          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">PrivaShield</span>
+          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">Blurify AI</span>
         </div>
         <button className="text-gray-500 hover:text-gray-700">
           <UserCircle className="w-6 h-6" />
@@ -284,7 +284,7 @@ const AppPage: React.FC = () => {
 
           <div className="pt-6 mt-auto bg-white border-t border-gray-100">
             <p className="text-xs text-center text-gray-400 leading-relaxed px-2">
-              PrivaShield manual processing happens entirely in your browser. No image data is sent back to the server after this point.
+              Blurify AI manual processing happens entirely in your browser. No image data is sent back to the server after this point.
             </p>
           </div>
         </aside>
@@ -292,7 +292,7 @@ const AppPage: React.FC = () => {
       </div>
 
       <footer className="h-10 bg-[#F8F9FA] border-t border-gray-200 flex items-center justify-between px-6 text-[11px] text-gray-500 font-medium flex-shrink-0 z-10 relative">
-        <span>© 2024 PrivaShield AI. Secure Image Processing.</span>
+        <span>© 2024 Blurify AI. Secure Image Processing.</span>
       </footer>
 
       {isDownloading && <DownloadModal progress={downloadProgress} />}

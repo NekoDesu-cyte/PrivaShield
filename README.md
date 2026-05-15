@@ -1,6 +1,6 @@
-# PrivaShield
+# Blurify AI
 
-PrivaShield is a web application that automatically detects and masks personally identifiable information (PII) in digital images using AI. It utilizes OCR for text extraction and a fine-tuned IndoBERT model for Named Entity Recognition (NER) to identify sensitive data like names, addresses, emails, and more.
+Blurify AI is a web application that automatically detects and masks personally identifiable information (PII) in digital images using AI. It utilizes OCR for text extraction and a fine-tuned IndoBERT model for Named Entity Recognition (NER) to identify sensitive data like names, addresses, emails, and more.
 
 ## 🚀 Features
 

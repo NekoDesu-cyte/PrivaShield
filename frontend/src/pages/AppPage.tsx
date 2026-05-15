@@ -26,7 +26,7 @@ const AppPage: React.FC = () => {
     // Simulasi membuat link download
     const link = document.createElement("a");
     link.href = "https://via.placeholder.com/1080.png"; // Ganti dengan URL image hasil proses nanti
-    link.download = "PrivaShield_Protected_Image.png";
+    link.download = "BlurifyAI_Protected_Image.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -62,7 +62,7 @@ const AppPage: React.FC = () => {
       <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0 z-10">
         <div className="flex items-center gap-2">
           <Shield className="text-[#0D52E9] w-6 h-6" />
-          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">PrivaShield</span>
+          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">Blurify AI</span>
         </div>
       </header>
 
@@ -218,7 +218,7 @@ const AppPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="h-12 bg-[#F8F9FA] border-t border-gray-200 flex items-center justify-between px-6 flex-shrink-0 text-[13px] text-gray-600 font-medium">
-        <span>© 2026 PrivaShield AI. Secure Image Processing.</span>
+        <span>© 2026 Blurify AI. Secure Image Processing.</span>
       </footer>
 
       {/* Modal Download dipanggil di sini */}
