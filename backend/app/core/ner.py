@@ -34,21 +34,26 @@ class NERProcessor:
         pii_results = []
         
         # 1. Regex check with offsets
-        # Updated patterns for better ID detection without being too broad
         advanced_patterns = {
-            "EMAIL": r'[a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+            "EMAIL": r'[a-zA-Z0-9._%+-]+\s*(?:@|at)\s*[a-zA-Z0-9.-]+\s*(?:[\.\,]\s*(?:co|id|com|net|org|edu|gov|io|ai)\b|(?:\.com|net|org|edu|gov|io|ai|id)|[a-z]{2,4})?',
             "PHONE": r'(?:(?:\+62)|0)8[0-9\-\s]{8,13}',
             "ACCOUNT": r'\b\d{10,16}\b',
             "NIK": r'\b\d{16}\b',
-            "EMP_ID": r'\b[A-Z]{2,4}-\d{4}-\d{4,}\b', # Employee IDs like EMP-2024-0892
+            "EMP_ID": r'\b[A-Z]{2,4}-\d{4}-\d{4,}\b', 
             "URL": r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+',
             "USERNAME": r'@[a-zA-Z0-9_]{3,}',
             "ADDRESS_HINT": r'(?i)\b(?:jl|jalan|perum|blok|rt|rw|kel|kec|desa|pabrik|kantor|hub)\.?\s+[a-z0-9\s.,/:-]{5,}\b',
-            "OCR_FIX_ADDRESS": r'(?i)\b(?:ji|jaian|rto|rwo)\b[a-z0-9\s.,/:-]{5,}\b'
+            "OCR_FIX_ADDRESS": r'(?i)\b(?:ji|jaian|rto|rwo|rt|rw)\b[a-z0-9\s.,/:-]{5,}\b'
         }
 
         for label, pattern in advanced_patterns.items():
             for match in re.finditer(pattern, text, re.IGNORECASE):
+                # Validation for EMAIL: must contain '@' or ' at '
+                if label == "EMAIL":
+                    email_candidate = match.group()
+                    if not re.search(r'@|\bat\b', email_candidate, re.I):
+                        continue
+                
                 pii_results.append({
                     "text": match.group(),
                     "start": match.start(),
@@ -56,103 +61,106 @@ class NERProcessor:
                     "label": label
                 })
 
-        # 2. Context-based ID detection (Smart trigger)
-        # If keywords like NIK/NIP/ID are present, look for the next alphanumeric token
-        # Using a non-greedy lookahead for the ID part to avoid capturing long generic strings
-        context_keywords = r'(?i)\b(nik|nip|ktp|id|no\.?|nomor|kode)\b[:\s]*([A-Z0-9\-/]{6,20})\b'
-        for match in re.finditer(context_keywords, text):
-            # match.group(2) is the actual ID
-            id_part = match.group(2)
-            # Skip if the ID part is just a common word (not numeric enough or mixed)
-            if not any(char.isdigit() for char in id_part):
-                continue
-            start_offset = match.start(2)
-            end_offset = match.end(2)
-            
-            # Avoid overlapping with existing regex results
-            if not any(r['start'] <= start_offset < r['end'] for r in pii_results):
-                pii_results.append({
-                    "text": id_part,
-                    "start": start_offset,
-                    "end": end_offset,
-                    "label": "ID_CONTEXT"
-                })
+        # Extra EMAIL check for spaced OCR noise like "dimas p@gmailcom"
+        # This catch-all handles "name p@domain" or "name.p @ domain"
+        spaced_email_pattern = r'\b[a-zA-Z0-9._%+-]+(?:\s+|\.)[a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*(?:\.[a-z]{2,4}|[a-z]{3,})?'
+        for match in re.finditer(spaced_email_pattern, text):
+             pii_results.append({
+                "text": match.group(),
+                "start": match.start(),
+                "end": match.end(),
+                "label": "EMAIL"
+            })
 
-        # 3. IndoBERT NER check
-        # Stopwords to clean from the start/end of NER results to avoid "Astaga Aldo" issue
-        stopwords = {"astaga", "wah", "halo", "hai", "duh", "loh", "kok", "ia", "si", "bu", "pak", "mbak", "mas", "dari", "sama", "makasih", "terima", "kasih"}
-        # Triggers that indicate a name might follow (Indonesian context)
-        person_triggers = {"si", "sama", "dari", "tim", "nama", "halo", "hai", "pak", "bu", "mbak", "mas"}
-        
-        # Blacklist for specific words that should NEVER be blurred as NAME (common false positives)
-        name_blacklist = {"makasih", "terima", "kasih", "ya", "oke", "sip", "dah", "sudah", "maka", "hei", "he"}
-        
+        # 2. Context-based Name detection (IndoBERT)
+        # Using IndoBERT for NER (Names, Organizations, Locations)
         try:
-            ner_results = self.nlp(text)
-            for entity in ner_results:
-                label = None
-                score = entity['score']
-                ent_text = entity['word']
-                
-                if entity['entity_group'] == 'PER':
-                    # Dynamic threshold for names
-                    pre_context = text[max(0, entity['start']-15):entity['start']].lower()
-                    has_trigger = any(trigger in pre_context for trigger in person_triggers)
-                    
-                    # SYSTEMIC PRECISION FIXES:
-                    # 1. Whole Word Check: Ensure the detected fragment isn't just part of a larger word
-                    #    Check character immediately after the match
-                    is_fragment = False
-                    if entity['end'] < len(text):
-                        next_char = text[entity['end']]
-                        if next_char.isalnum():
-                            is_fragment = True
-                            
-                    # 2. Length Constraint: Names are rarely < 3 chars in this context unless triggered
-                    is_short = len(ent_text) < 3 and not has_trigger
+            # IndoBERT NER is optimized for Title Case sentences.
+            # 1. Ensure sentence boundary
+            ner_text = text if text.endswith(('.', '!', '?')) else text + "."
+            
+            # 2. Force Title Case on the whole segment if it's mostly lowercase OCR
+            # This is a major booster for IndoBERT which is very sensitive to casing
+            words = ner_text.split()
+            title_text = " ".join([w.capitalize() for w in words])
 
-                    if (score > 0.8 or (has_trigger and score > 0.4)) and not is_fragment and not is_short and ent_text.lower() not in name_blacklist:
-                        label = "NAME"
-                elif entity['entity_group'] in ['LOC', 'GPE'] and score > 0.4:
-                    label = "ADDRESS"
-                
-                if label:
-                    ent_text = entity['word']
-                    start = entity['start']
-                    end = entity['end']
+            # Detect on TitleCase version to get better recall on names
+            ner_results = self.nlp(title_text)
+            
+            for ent in ner_results:
+                if ent['entity_group'] in ['PER', 'ORG', 'LOC']:
+                    label_map = {'PER': 'NAME', 'ORG': 'ORG', 'LOC': 'ADDRESS'}
                     
-                    # Refine offsets: remove leading/trailing non-alphanumeric or stopwords
-                    # This prevents "Astaga Aldo" from being blurred entirely
-                    words_in_ent = ent_text.lower().split()
+                    # --- SMART CONTEXTUAL FILTERING (Google AI Standard) ---
+                    word = ent['word'].strip()
+                    label = label_map.get(ent['entity_group'], 'OTHER')
+                    score = ent.get('score', 0)
                     
-                    current_start = start
-                    for word in words_in_ent:
-                        if word in stopwords or len(word) <= 1:
-                            # Recalculate start based on word position in original text
-                            # (Simple approximation: finding word in the entity slice)
-                            word_idx = text[current_start:end].lower().find(word)
-                            if word_idx != -1:
-                                current_start += word_idx + len(word)
-                        else:
-                            break
-                    
-                    # If we trimmed everything or it's empty, skip
-                    if current_start >= end:
+                    # 1. Fragment Suppression: Kill single/double letter names (e.g. 'He', 'Gu', 'De')
+                    if len(word) <= 2 and label == 'NAME':
                         continue
-                        
-                    # Final check for overlap - prioritizes ADDRESS_HINT/Regex over AI
-                    if not any(r['start'] <= current_start < r['end'] for r in pii_results):
-                        pii_results.append({
-                            "text": text[current_start:end].strip(),
-                            "start": current_start,
-                            "end": end,
-                            "label": label
-                        })
+                    
+                    # 2. Sub-word Artifact Filtering: Ignore Transformer fragments (##)
+                    if word.startswith("##"):
+                        continue
+
+                    # 3. Proper Casing Heuristic: Names/Orgs in PII context MUST be Title Case
+                    # We map back to original text to check the real casing
+                    pattern = re.escape(word)
+                    orig_match = re.search(pattern, text, re.IGNORECASE)
+                    text_to_report = orig_match.group() if orig_match else word
+                    
+                    is_proper_case = any(c.isupper() for c in text_to_report)
+                    
+                    # 4. Stop-Word & Conversational Noise Filter
+                    lowercased = word.lower()
+                    conversational_noise = [
+                        'tim', 'divisi', 'ops', 'gue', 'lo', 'you', 'loh', 'apaan', 'valid', 
+                        'target', 'marketing', 'manager', 'maka', 'maaf', 'ini', 'keapus', 
+                        'hehe', 'oke', 'iya', 'halo', 'semua', 'ada', 'wah', 'dismiss', 'add', 'listen'
+                    ]
+                    if lowercased in conversational_noise:
+                        continue
+
+                    # 5. Non-PII Org Suppression: Don't blur Bank Names (BCA, BRI) - Bad UX
+                    if label == 'ORG' and word.upper() in ['BCA', 'BRI', 'BNI', 'MANDIRI', 'OVO', 'GOPAY']:
+                        continue
+
+                    # 6. Dynamic Thresholding
+                    # Title Case names are trusted more (0.3), Lowercase fragments need near-perfection (0.99)
+                    threshold = 0.30 if is_proper_case else 0.99
+                    
+                    if score < threshold:
+                        continue
+                    
+                    # 7. Keyword conflict check
+                    if lowercased in ['nik', 'no', 'id', 'rekening', 'nomor']:
+                        continue
+                    # -------------------------------------------------------
+
+                    pii_results.append({
+                        "text": text_to_report,
+                        "start": ent['start'],
+                        "end": ent['end'],
+                        "label": label
+                    })
         except Exception as e:
             print(f"NER Error: {e}")
 
+        # 3. Context-based ID detection (Smart trigger)
+        id_keywords = r'(?i)\b(?:nik|id|nomor|no|pegawai|emp|rekening|acc|bank|va|nik)\b'
+        if re.search(id_keywords, text):
+            # If keywords found, be more aggressive with generic digit patterns
+            for match in re.finditer(r'\b\d{8,16}\b', text):
+                pii_results.append({
+                    "text": match.group(),
+                    "start": match.start(),
+                    "end": match.end(),
+                    "label": "POTENTIAL_ID"
+                })
+
         # 4. Cleanup: Sort and remove redundant matches
-        pii_results = sorted(pii_results, key=lambda x: x['start'])
+        pii_results = sorted(pii_results, key=lambda x: (x['start'], -(x['end'] - x['start'])))
         final_results = []
         if pii_results:
             curr = pii_results[0]
@@ -162,18 +170,24 @@ class NERProcessor:
                 
                 # Check for overlap: if next starts before current ends
                 if next_match['start'] < curr['end']:
-                    # Priority logic: EMAIL/PHONE > USERNAME
-                    if (next_match['label'] in ["EMAIL", "PHONE"]) and (curr['label'] == "USERNAME"):
+                    # Priority logic: EMAIL/PHONE/EMP_ID/NIK > NAME/USERNAME/ADDRESS_HINT
+                    high_priority = ["EMAIL", "PHONE", "NIK", "ACCOUNT", "EMP_ID"]
+                    
+                    if (next_match['label'] in high_priority) and (curr['label'] not in high_priority):
                         # Replace current with the stronger match
                         curr = next_match
-                    elif (curr['label'] in ["EMAIL", "PHONE"]) and (next_match['label'] == "USERNAME"):
-                        # Keep current, ignore the username overlap
+                    elif (curr['label'] in high_priority) and (next_match['label'] not in high_priority):
+                        # Keep current, ignore the overlap
+                        continue
+                    # Check if next_match is fully contained within curr
+                    elif next_match['start'] >= curr['start'] and next_match['end'] <= curr['end']:
+                        # Skip next_match as it is a sub-segment of curr
                         continue
                     else:
                         # General overlap merge logic
                         curr['end'] = max(curr['end'], next_match['end'])
                         curr['text'] = text[curr['start']:curr['end']]
-                elif next_match['start'] <= curr['end'] + 2 and is_address_merge:
+                elif next_match['start'] <= curr['end'] + 5 and is_address_merge:
                     curr['end'] = max(curr['end'], next_match['end'])
                     curr['text'] = text[curr['start']:curr['end']]
                     curr['label'] = "ADDRESS" # Standardize

@@ -35,6 +35,14 @@ async def process_image(file: UploadFile = File(...)):
         all_ocr_text = [text for (_, text, _) in results]
         detected_entities = []
         
+        # 1. First Pass: Aggregate all OCR text to detect entities in context
+        full_text = " ".join(all_ocr_text)
+        global_pii = ner.detect_pii_granular(full_text)
+        
+        # 2. Map global detection back to OCR blocks for precise BBoxes
+        # This helps detect entities split across lines or fragments
+        
+        # 3. Process each segment individually as before (for granular precision)
         for (bbox, text, prob) in results:
             pii_matches = ner.detect_pii_granular(text)
             
