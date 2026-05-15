@@ -28,6 +28,11 @@ PrivaShield is a web application that automatically detects and masks personally
 ### 1. Setup Backend
 ```bash
 cd backend
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 # Download the spacy model if needed (optional if using BERT only)
 python -m spacy download id_core_news_lg
