@@ -71,18 +71,16 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 Explore the AI pipeline and visualization in `tests/pipeline_test.ipynb`. It simulates the full OCR -> NER -> Blur sequence with sample images.
 
 ### Pipeline Output Example
-The pipeline generates high-contrast visualizations for the frontend team to reference:
-- **Purple Bounding Boxes**: Represent areas identified by AI (IndoBERT) and Regex as sensitive.
-- **Labeling**: Every detected area is labeled with its PII type (NAME, ADDRESS, etc.).
+The pipeline generates side-by-side visualizations (Original with Precise Detection vs. Final Masked Result) to verify our word-level precision.
 
-| Original with Detection | Final Masked Result |
-|---|---|
-| <img src="backend/test/Test-Image-PII-1.PNG" alt="Detection Example 1" width="400"> | <img src="tests/output-result-1.png" alt="Masked Example 1"> |
-| <img src="backend/test/Test-Image-PII-2.PNG" alt="Detection Example 2" width="400"> | <img src="tests/output-result.png" alt="Masked Example 2"> |
-| <img src="backend/test/Test-Image-PII-3.PNG" alt="Detection Example 3" width="400"> | <img src="tests/output-result-3.png" alt="Masked Example 3"> |
-| <img src="backend/test/Test-Image-PII-4.png" alt="Detection Example 4" width="400"> | <img src="tests/output-result-4.png" alt="Masked Example 4"> |
+| Side-by-Side Comparison (Detection & Result) |
+|---|
+| <img src="tests/test_outputs/result_Test-Image-PII-1.PNG" alt="Test Result 1" width="800"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-2.PNG" alt="Test Result 2" width="800"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-3.PNG" alt="Test Result 3" width="800"> |
+| <img src="tests/test_outputs/result_Test-Image-PII-4.png" alt="Test Result 4" width="800"> |
 
-*Processing based on `backend/test/Test-Image-PII-2.PNG`*
+*Results generated using the latest IndoBERT + Regex Hybrid engine with Contextual Name Boosting.*
 
 ### API Response Example (`/api/image/process`)
 ```json

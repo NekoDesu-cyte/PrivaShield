@@ -42,6 +42,9 @@ class NERProcessor:
             "NIK": r'\b\d{16}\b',
             "EMP_ID": r'\b[A-Z]{2,4}-\d{4}-\d{4,}\b', # Employee IDs like EMP-2024-0892
             "URL": r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+',
+            "USERNAME": r'@[a-zA-Z0-9_]{3,}',
+            "ADDRESS_HINT": r'(?i)\b(?:jl|jalan|perum|blok|rt|rw|kel|kec|desa|pabrik|kantor|hub)\.?\s+[a-z0-9\s.,/:-]{5,}\b',
+            "OCR_FIX_ADDRESS": r'(?i)\b(?:ji|jaian|rto|rwo)\b[a-z0-9\s.,/:-]{5,}\b'
         }
 
         for label, pattern in advanced_patterns.items():
@@ -77,15 +80,25 @@ class NERProcessor:
 
         # 3. IndoBERT NER check
         # Stopwords to clean from the start/end of NER results to avoid "Astaga Aldo" issue
-        stopwords = {"astaga", "wah", "halo", "hai", "duh", "loh", "kok", "ia", "si", "bu", "pak", "mbak", "mas"}
+        stopwords = {"astaga", "wah", "halo", "hai", "duh", "loh", "kok", "ia", "si", "bu", "pak", "mbak", "mas", "dari", "sama"}
+        # Triggers that indicate a name might follow (Indonesian context)
+        person_triggers = {"si", "sama", "dari", "tim", "nama", "halo", "hai", "pak", "bu", "mbak", "mas"}
         
         try:
             ner_results = self.nlp(text)
             for entity in ner_results:
                 label = None
-                if entity['entity_group'] == 'PER' and entity['score'] > 0.8:
-                    label = "NAME"
-                elif entity['entity_group'] == 'LOC' and entity['score'] > 0.8:
+                score = entity['score']
+                
+                if entity['entity_group'] == 'PER':
+                    # Context-aware threshold for names
+                    # Check text preceding the entity for triggers
+                    pre_context = text[max(0, entity['start']-15):entity['start']].lower()
+                    has_trigger = any(trigger in pre_context for trigger in person_triggers)
+                    
+                    if score > 0.8 or (has_trigger and score > 0.4):
+                        label = "NAME"
+                elif entity['entity_group'] in ['LOC', 'GPE'] and score > 0.4:
                     label = "ADDRESS"
                 
                 if label:
@@ -100,7 +113,11 @@ class NERProcessor:
                     current_start = start
                     for word in words_in_ent:
                         if word in stopwords or len(word) <= 1:
-                            current_start += len(word) + 1 # +1 for space
+                            # Recalculate start based on word position in original text
+                            # (Simple approximation: finding word in the entity slice)
+                            word_idx = text[current_start:end].lower().find(word)
+                            if word_idx != -1:
+                                current_start += word_idx + len(word)
                         else:
                             break
                     
@@ -108,7 +125,7 @@ class NERProcessor:
                     if current_start >= end:
                         continue
                         
-                    # Final check for overlap
+                    # Final check for overlap - prioritizes ADDRESS_HINT/Regex over AI
                     if not any(r['start'] <= current_start < r['end'] for r in pii_results):
                         pii_results.append({
                             "text": text[current_start:end].strip(),
@@ -119,7 +136,27 @@ class NERProcessor:
         except Exception as e:
             print(f"NER Error: {e}")
 
-        return pii_results
+        # 4. Cleanup: Sort and remove redundant matches
+        pii_results = sorted(pii_results, key=lambda x: x['start'])
+        final_results = []
+        if pii_results:
+            curr = pii_results[0]
+            for next_match in pii_results[1:]:
+                # If overlap or very close (within 2 chars like comma/space), merge if both are address-like
+                is_address_merge = ("ADDRESS" in curr['label'] and "ADDRESS" in next_match['label'])
+                if next_match['start'] <= curr['end'] + 2 and is_address_merge:
+                    curr['end'] = max(curr['end'], next_match['end'])
+                    curr['text'] = text[curr['start']:curr['end']]
+                    curr['label'] = "ADDRESS" # Standardize
+                elif next_match['start'] < curr['end']:
+                    # Overlap but not merging - keep the one already in (regex/earlier)
+                    continue
+                else:
+                    final_results.append(curr)
+                    curr = next_match
+            final_results.append(curr)
+            
+        return final_results
 
     def detect_pii(self, text: str):
         # Backward compatibility for existing API calls
