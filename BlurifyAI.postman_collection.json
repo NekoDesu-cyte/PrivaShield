@@ -1,0 +1,68 @@
+{
+	"info": {
+		"_postman_id": "blurify-ai-api",
+		"name": "Blurify AI API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": ["{{base_url}}"],
+					"path": ["health"]
+				}
+			}
+		},
+		{
+			"name": "Process Image",
+			"request": {
+				"method": "POST",
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"description": "Image file to process (JPG/PNG)"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/api/image/process",
+					"host": ["{{base_url}}"],
+					"path": ["api", "image", "process"]
+				}
+			}
+		},
+		{
+			"name": "Finalize Image",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"image_id\": \"PASTE_UUID_HERE\",\n    \"blur_areas\": [\n        [100, 150, 200, 50]\n    ]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/api/image/finalize",
+					"host": ["{{base_url}}"],
+					"path": ["api", "image", "finalize"]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000"
+		}
+	]
+}

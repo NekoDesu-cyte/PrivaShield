@@ -1,0 +1,17 @@
+# Python / venv
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS Files
+.DS_Store
+.ipynb_checkpoints/
+
+# Project Temp
+backend/uploads/
+backend/repro_upload.py
+backend/test_fail.py
+docs/
+tests/
+.env

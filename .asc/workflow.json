@@ -1,0 +1,30 @@
+{
+  "env": {
+    "PYTHON": "python3"
+  },
+  "before_all": "echo Starting PrivaShield Workflow...",
+  "workflows": {
+    "test-ner": {
+      "description": "Run NER logic tests with IndoBERT",
+      "steps": [
+        {
+          "name": "check-dependencies",
+          "run": "pip install -r backend/requirements.txt"
+        },
+        {
+          "name": "test-ner-script",
+          "run": "$PYTHON -c \"import sys; sys.path.append('backend'); from app.core.ner import NERProcessor; ner = NERProcessor(); print('NER Test:', ner.detect_pii('Nama saya Budi Santoso'))\""
+        }
+      ]
+    },
+    "run-backend": {
+      "description": "Start the FastAPI backend server",
+      "steps": [
+        {
+          "name": "start-server",
+          "run": "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+        }
+      ]
+    }
+  }
+}

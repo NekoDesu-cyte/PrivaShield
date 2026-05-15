@@ -1,37 +1,33 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import shutil
 import os
+from app.api.routes import image
 
-app = FastAPI()
+app = FastAPI(title="Blurify AI API")
 
-# Konfigurasi CORS
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Buat folder 'uploads' jika belum ada
-os.makedirs("uploads", exist_ok=True)
+# Static files for uploads
+UPLOAD_DIR = "../uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Jadikan folder 'uploads' bisa diakses dari browser (seperti hosting gambar statis)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Include routers
+app.include_router(image.router, prefix="/api/image", tags=["image"])
 
-@app.post("/api/upload")
-async def upload_image(file: UploadFile = File(...)):
-    # 1. Tentukan lokasi simpan
-    file_location = f"uploads/{file.filename}"
-    
-    # 2. Simpan gambar fisik ke dalam folder
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # 3. Kembalikan URL gambarnya ke React
+@app.get("/health")
+async def health_check():
     return {
-        "status": "success",
-        "image_url": f"http://127.0.0.1:8000/uploads/{file.filename}"
+        "status": "healthy",
+        "service": "Blurify AI API",
+        "version": "1.0.0",
+        "capabilities": ["OCR", "NER", "Auto-Blur"]
     }
