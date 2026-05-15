@@ -15,14 +15,13 @@ PrivaShield is a web application that automatically detects and masks personally
 - **Backend**: FastAPI (Python)
 - **AI Models**: IndoBERT (HuggingFace), EasyOCR
 - **Image Processing**: OpenCV
-- **Workflow Automation**: `asc` CLI
+- **Workflow Automation**: Python & Batch Scripts
 - **Frontend**: React (See `frontend/` directory)
 
 ## 📋 Prerequisites
 
 - Python 3.9+
 - Pip (Python Package Manager)
-- [asc CLI](https://github.com/App-Store-Connect-CLI/asc) (Optional, for automated workflows)
 
 ## 🏁 Quick Start
 
