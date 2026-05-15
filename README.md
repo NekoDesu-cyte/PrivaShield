@@ -54,6 +54,37 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### Jupyter Notebook
 Explore the AI pipeline and visualization in `tests/pipeline_test.ipynb`. It simulates the full OCR -> NER -> Blur sequence with sample images.
 
+### Pipeline Output Example
+The pipeline generates high-contrast visualizations for the frontend team to reference:
+- **Purple Bounding Boxes**: Represent areas identified by AI (IndoBERT) and Regex as sensitive.
+- **Labeling**: Every detected area is labeled with its PII type (NAME, ADDRESS, etc.).
+
+| Original with Detection | Final Masked Result |
+|---|---|
+| ![Detection Example](https://raw.githubusercontent.com/NekoDesu-cyte/PrivaShield/feat/integrate-ocr/backend/test/Test-Image-OCR.jpeg) | (Processed Image Output) |
+
+### API Response Example (`/api/image/process`)
+```json
+{
+  "status": "success",
+  "image_id": "51cab37f-1432-495c-b291-1ddb36d22309",
+  "detected_entities": [
+    {
+      "text": "Budi Santoso",
+      "label": "NAME",
+      "bbox": [100, 200, 150, 40],
+      "confidence": 0.98
+    },
+    {
+      "text": "budi.santoso@gmail.com",
+      "label": "EMAIL",
+      "bbox": [100, 250, 200, 30],
+      "confidence": 1.0
+    }
+  ]
+}
+```
+
 ### API Testing
 - **Postman**: Import `BlurifyAI.postman_collection.json` to test endpoints.
 - **Samples**: Test images are available in `backend/test/`.
