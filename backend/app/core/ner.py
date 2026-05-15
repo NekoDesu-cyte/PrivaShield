@@ -92,6 +92,7 @@ class NERProcessor:
             for entity in ner_results:
                 label = None
                 score = entity['score']
+                ent_text = entity['word']
                 
                 if entity['entity_group'] == 'PER':
                     # Context-aware threshold for names
