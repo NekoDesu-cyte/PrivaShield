@@ -1,23 +1,17 @@
-
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
-// Import halaman dari folder pages
 import LandingPage from './pages/LandingPage';
 import AppPage from './pages/AppPage';
-// import ResultPage from './pages/ResultPage';
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Rute ke Landing Page (Halaman Utama) */}
+        {/* Rute "/" (Halaman utama) diarahkan ke LandingPage */}
         <Route path="/" element={<LandingPage />} />
         
-        {/* Rute ke Halaman Utama Aplikasi (Tempat upload dan edit) */}
+        {/* Rute "/app" (Halaman Editor) diarahkan ke AppPage */}
         <Route path="/app" element={<AppPage />} />
-        
-        {/* Rute ke Halaman Hasil */}
-        {/* <Route path="/result" element={<ResultPage />} /> */}
       </Routes>
     </Router>
   );

@@ -1,303 +1,243 @@
+import { useNavigate } from 'react-router-dom'; // Tambahkan ini untuk pindah halaman
+import AiScanningOverlay from '../components/AiScanningOverlay'; // Sesuaikan path-nya
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-import DownloadModal from '../components/DownloadModal';
+
 import { 
   Shield, 
   UserCircle, 
-  RotateCcw, 
-  Download, 
-  Brush, 
-  Eraser 
+  Image as ImageIcon, 
+  Phone, 
+  Wand2, 
+  Contact,
+  Lock,
+  Sparkles,
+  CloudUpload
 } from 'lucide-react';
 
-const AppPage: React.FC = () => {
-  const location = useLocation();
-  const uploadedImageUrl = location.state?.imageUrl; 
 
-  // --- STATE & REFS UNTUK CANVAS ---
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [color] = useState('#ffffff'); 
-  
-  // --- STATE INTERAKTIVITAS ---
-  const [blurIntensity, setBlurIntensity] = useState(15); 
-  const [activeTool, setActiveTool] = useState<'Blur' | 'Erase'>('Blur'); 
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null); // Referensi untuk input file tersembunyi
 
-  // =========================================================
-  // LOGIKA CANVAS (MESIN EDIT GAMBAR)
-  // =========================================================
+  // State untuk mengontrol apakah overlay loading muncul
+  const [isScanning, setIsScanning] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const loadImageToCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx || !uploadedImageUrl) return;
+  // Fungsi saat user milih gambar dari komputernya
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const img = new Image();
-    img.crossOrigin = "Anonymous"; 
-    img.src = uploadedImageUrl;
-    
-    img.onload = () => {
-      if (!canvas) return;
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      (imageRef as any).current = img;
-    };
-    
-    img.onerror = () => {
-      console.error("Gagal memuat gambar ke canvas. Cek koneksi backend.");
-    };
-  }, [uploadedImageUrl]);
+    setIsScanning(true);
+    setProgress(15); // Mulai loading
 
-  useEffect(() => {
-    if (uploadedImageUrl) {
-      loadImageToCanvas();
-    }
-  }, [uploadedImageUrl, loadImageToCanvas]);
+    // 1. Siapkan data file untuk dikirim
+    const formData = new FormData();
+    formData.append("file", file);
 
-  const getCoordinates = (event: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;   
-    const scaleY = canvas.height / rect.height;
-
-    if ('clientX' in event) {
-      return {
-        x: (event.clientX - rect.left) * scaleX,
-        y: (event.clientY - rect.top) * scaleY
-      };
-    } else {
-      return {
-        x: (event.touches[0].clientX - rect.left) * scaleX,
-        y: (event.touches[0].clientY - rect.top) * scaleY
-      };
-    }
-  };
-
-  const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-
-    const { x, y } = getCoordinates(event);
-    setIsDrawing(true);
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-
-  const draw = (event: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
-
-    const { x, y } = getCoordinates(event);
-
-    ctx.lineWidth = blurIntensity;
-    ctx.lineCap = 'round';         
-    ctx.lineJoin = 'round';
-
-    if (activeTool === 'Blur') {
-      ctx.globalCompositeOperation = 'source-over'; 
-      ctx.strokeStyle = color;                      
-      ctx.shadowColor = color;                      
-      ctx.shadowBlur = blurIntensity * 1.5;         
-    } else {
-      ctx.globalCompositeOperation = 'destination-out'; 
-      ctx.strokeStyle = 'rgba(0,0,0,1)';
-      ctx.shadowBlur = 0; 
-    }
-
-    ctx.lineTo(x, y);
-    ctx.stroke(); 
-  };
-
-  const stopDrawing = () => {
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
-    ctx.closePath();
-    setIsDrawing(false);
-  };
-
-  const handleResetCanvas = () => {
-    loadImageToCanvas();
-  };
-
-  // =========================================================
-  // LOGIKA DOWNLOAD
-  // =========================================================
-
-  const triggerDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Ambil gambar langsung dari canvas beserta editan blurnya
-    const dataUrl = canvas.toDataURL("image/png");
-    
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = "PrivaShield_Protected_Image.png";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadClick = () => {
-    setIsDownloading(true);
-    setDownloadProgress(0);
-
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          triggerDownload(); 
-          
-          setTimeout(() => {
-            setIsDownloading(false); 
-          }, 1500); 
-          
-          return 100;
-        }
-        return prev + 10;
+    try {
+      // 2. Kirim ke FastAPI
+      const response = await fetch("http://127.0.0.1:8000/api/upload", {
+        method: "POST",
+        body: formData,
       });
-    }, 200);
-  };
+      const data = await response.json();
+      setProgress(100);
 
-  return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans flex flex-col h-screen overflow-hidden relative">
+      // 3. Pindah ke AppPage sambil membawa URL gambar dari backend!
+      setTimeout(() => {
+        navigate('/app', { state: { imageUrl: data.image_url } });
+      }, 500);
+
+    } catch (error) {
+      console.error("Gagal upload:", error);
+      alert("Gagal koneksi ke server Backend!");
+      setIsScanning(false);
+    }
+  };
+  
+ return (
+    <div className="min-h-screen bg-[#F8F9FA] text-gray-900 font-sans flex flex-col">
       
-      {/* Top Navigation */}
-      <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0 z-10 relative">
+      {/* Navigation (Tetap Tampil) */}
+      <nav className="flex items-center justify-between px-8 py-5 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <Shield className="text-[#0D52E9] w-6 h-6" />
-          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">PrivaShield</span>
+          <span className="font-bold text-xl tracking-tight">Blurify AI</span>
         </div>
-        <button className="text-gray-500 hover:text-gray-700">
-          <UserCircle className="w-6 h-6" />
-        </button>
-      </header>
 
-      {/* Main Layout Area */}
-      <div className="flex flex-1 overflow-hidden">
+        <div className="flex items-center gap-4">
+        </div>
+      </nav>
+
+      {/* KONDISIONAL RENDER: Jika isScanning TRUE, tampilkan Overlay. Jika FALSE, tampilkan konten utama */}
+      {isScanning ? (
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <AiScanningOverlay progress={progress} />
+        </div>
+      ) : (
+        <>
+          <main className="flex-grow flex flex-col items-center">
         
-        {/* Center Workspace (Meja Gambar) */}
-        <main className="flex-1 flex flex-col bg-[#F3F4F6] overflow-hidden border-r border-gray-200">
-          <div className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-200 flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <h3 className="font-semibold text-gray-800 text-sm truncate max-w-xs">
-                {uploadedImageUrl ? uploadedImageUrl.split('/').pop() : 'editor.png'}
-              </h3>
-              <span className="bg-[#E4ECFA] text-[#0D52E9] text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide">MODE: MANUAL</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={handleResetCanvas}
-                className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Clear All
-              </button>
-              <button 
-                onClick={handleDownloadClick}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#0D52E9] rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                <Download className="w-4 h-4" /> Download Result
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 relative overflow-auto flex items-center justify-center p-8 bg-slate-100/50">
-            <div className="relative rounded-xl shadow-2xl border border-gray-200 overflow-hidden bg-white touch-none">
+        {/* Hero Section */}
+        <section className="flex flex-col items-center text-center px-4 pt-16 pb-12 w-full max-w-4xl mx-auto">
               
-              <canvas 
-                ref={canvasRef}
-                className="max-w-full max-h-[75vh] object-contain cursor-crosshair"
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-              />
+              <h1 className="text-5xl font-bold tracking-tight text-gray-900 mb-6 leading-tight">
+                Protect Personal Data in Your <br /> Screenshots
+              </h1>
+              
+              <p className="text-lg text-gray-600 mb-10 max-w-2xl">
+                AI-powered detection for profile photos, phone numbers, and names. Redact sensitive information securely before sharing or storing.
+              </p>
+              
+              {/* Drag & Drop Upload Area */}
+              <div className="w-full max-w-lg bg-white border-2 border-dashed border-[#B4C4E4] rounded-2xl p-10 flex flex-col items-center justify-center gap-3 shadow-sm mt-2">
+                <div className="bg-[#EBF1FF] p-4 rounded-full mb-2">
+                  <CloudUpload className="w-8 h-8 text-[#0D52E9]" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Drag & drop your image here</h3>
+                <p className="text-sm text-gray-500 mb-4">Supports JPG, PNG, WEBP (Max 10MB)</p>
+                
+                {/* 1. INPUT FILE TERSEMBUNYI (WAJIB ADA) */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleFileSelect} 
+                />
+                
+                {/* 2. TOMBOL BIRU YANG MENG-KLIK INPUT FILE */}
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center justify-center gap-2 bg-[#0D52E9] hover:bg-blue-700 text-white px-6 py-2.5 rounded-md text-sm font-semibold transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Select Image
+                </button>
+              </div>
+            </section>
 
-              {!uploadedImageUrl && (
-                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500 text-sm font-medium">
-                    Waiting for image upload...
-                 </div>
-              )}
+        {/* Demo Showcase Area */}
+        <section className="w-full max-w-6xl px-4 py-8 mt-4">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              
+              {/* Original Side */}
+              <div className="flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-semibold text-gray-600">Original</span>
+                  <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-semibold">Exposed</span>
+                </div>
+                {/* Mockup Container */}
+                <div className="bg-[#8CB8C1] h-64 rounded-lg overflow-hidden flex items-center justify-center relative border border-gray-200">
+                   <div className="w-1/2 h-full bg-white shadow-xl flex flex-col p-4 gap-3">
+                      <div className="w-20 h-4 bg-gray-200 rounded"></div>
+                      <div className="w-full h-12 bg-gray-100 rounded-lg"></div>
+                      <div className="w-16 h-4 bg-blue-100 rounded ml-auto"></div>
+                      <div className="w-full h-16 bg-gray-100 rounded-lg"></div>
+                   </div>
+                </div>
+              </div>
+
+              {/* Protected Side */}
+              <div className="flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-semibold text-blue-600">Protected</span>
+                  <span className="flex items-center gap-1 bg-[#105E3E] text-white px-3 py-1 rounded-full text-xs font-semibold">
+                    <Lock className="w-3 h-3" /> Secured
+                  </span>
+                </div>
+                {/* Mockup Container */}
+                <div className="bg-gray-800 h-64 rounded-lg overflow-hidden flex items-center justify-center relative border border-gray-700">
+                    <div className="w-1/2 h-full bg-white shadow-xl flex flex-col p-4 gap-3 blur-[2px] opacity-80">
+                      <div className="w-20 h-4 bg-gray-300 rounded"></div>
+                      <div className="w-full h-12 bg-gray-300 rounded-lg"></div>
+                      <div className="w-16 h-4 bg-blue-200 rounded ml-auto"></div>
+                      <div className="w-full h-16 bg-gray-300 rounded-lg"></div>
+                   </div>
+                   {/* Floating Label */}
+                   <div className="absolute bg-white px-4 py-2 rounded-md shadow-lg flex items-center gap-2 font-semibold text-sm text-gray-800">
+                      <Sparkles className="w-4 h-4 text-[#0D52E9]" />
+                      AI Auto-Redacted
+                   </div>
+                </div>
+              </div>
+
             </div>
           </div>
+        </section>
+
+        {/* Features Section */}
+        <section className="w-full max-w-6xl px-4 py-20 text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Intelligent Detection</h2>
+          <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
+            Our models are trained specifically to identify and isolate PII (Personally Identifiable Information) in complex UI screenshots.
+          </p>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+            
+            {/* Feature 1 */}
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 mb-4">
+                <UserCircle className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Profile Photo Detection</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Automatically locates and blurs faces and avatars across messaging apps, social feeds, and internal tools.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 mb-4">
+                <Phone className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Phone Number Detection</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Identifies various international phone number formats inline within text blocks or designated fields.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 mb-4">
+                <Contact className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Name Detection</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Context-aware NLP models highlight proper nouns that indicate user names or handles.
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
+              <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 mb-4">
+                <Wand2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Manual Blur Control</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                Fine-tune the results with our intuitive brush tool for custom redactions or adjustments.
+              </p>
+            </div>
+
+          </div>
+        </section>
         </main>
 
-        {/* Right Sidebar (Tools) */}
-        <aside className="w-80 bg-white flex flex-col flex-shrink-0 border-l border-gray-100 p-6 z-10 relative">
-          <div className="flex-1 overflow-y-auto pr-2">
-            
-            <div className="mb-8">
-              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4 block">Manual Tools</span>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => setActiveTool('Blur')}
-                  className={`flex flex-col items-center py-5 rounded-xl border-2 transition-all ${activeTool === 'Blur' ? 'border-[#0D52E9] bg-blue-50/50 text-[#0D52E9]' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <Brush className="w-6 h-6 mb-2.5" />
-                  <span className="text-sm font-bold">Blur Brush</span>
-                </button>
-                <button 
-                  onClick={() => setActiveTool('Erase')}
-                  className={`flex flex-col items-center py-5 rounded-xl border-2 transition-all ${activeTool === 'Erase' ? 'border-[#EF4444] bg-red-50 text-[#EF4444]' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <Eraser className="w-6 h-6 mb-2.5" />
-                  <span className="text-sm font-bold">Eraser Tool</span>
-                </button>
+          {/* Footer (Hanya tampil jika tidak sedang loading) */}
+          <footer className="bg-[#111827] text-gray-400 py-10 px-8">
+            <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+              <div className="mb-4 md:mb-0 text-center md:text-left">
+                <h4 className="text-white text-lg font-bold mb-1">Blurify AI</h4>
+                <p className="text-sm">© 2026 Blurify AI AI. Secure by Design.</p>
               </div>
             </div>
-
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4 text-sm font-bold">
-                <span>Brush Size</span>
-                <span className="text-[#0D52E9]">{blurIntensity}px</span>
-              </div>
-              <input 
-                type="range" min="5" max="80" value={blurIntensity}
-                onChange={(e) => setBlurIntensity(Number(e.target.value))}
-                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0D52E9]"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-2">
-                 <span>Small</span>
-                 <span>Very Large</span>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-gray-600 text-xs leading-relaxed space-y-2">
-                <p className="font-semibold text-gray-800">Tips:</p>
-                <p>Gunakan <span className='font-mono'>Blur Brush</span> untuk menutupi informasi sensitif seperti wajah atau teks.</p>
-                <p>Gunakan <span className='font-mono text-red-600'>Eraser Tool</span> jika goresan blur abang salah atau mengenai area yang salah.</p>
-            </div>
-
-          </div>
-
-          <div className="pt-6 mt-auto bg-white border-t border-gray-100">
-            <p className="text-xs text-center text-gray-400 leading-relaxed px-2">
-              PrivaShield manual processing happens entirely in your browser. No image data is sent back to the server after this point.
-            </p>
-          </div>
-        </aside>
-
-      </div>
-
-      <footer className="h-10 bg-[#F8F9FA] border-t border-gray-200 flex items-center justify-between px-6 text-[11px] text-gray-500 font-medium flex-shrink-0 z-10 relative">
-        <span>© 2024 PrivaShield AI. Secure Image Processing.</span>
-      </footer>
-
-      {isDownloading && <DownloadModal progress={downloadProgress} />}
+          </footer>
+        </>
+      )}
     </div>
   );
 };
 
-export default AppPage;
+export default LandingPage;

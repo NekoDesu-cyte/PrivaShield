@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import shutil
 import os
+import uvicorn 
 
 app = FastAPI()
 
@@ -15,10 +16,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Buat folder 'uploads' jika belum ada
+# create folder 'uploads' jika belum ada
 os.makedirs("uploads", exist_ok=True)
 
-# Jadikan folder 'uploads' bisa diakses dari browser (seperti hosting gambar statis)
+# Jadikan folder 'uploads' bisa diakses dari browser
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.post("/api/upload")
@@ -35,3 +36,6 @@ async def upload_image(file: UploadFile = File(...)):
         "status": "success",
         "image_url": f"http://127.0.0.1:8000/uploads/{file.filename}"
     }
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
