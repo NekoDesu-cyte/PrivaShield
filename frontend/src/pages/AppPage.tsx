@@ -6,44 +6,46 @@ import {
   RotateCcw, 
   Download, 
   Brush, 
-  Eraser, // Mengganti Square menjadi Eraser
+  Eraser, 
   Undo,
   ZoomIn,
   ZoomOut,
-  Maximize
-
+  Maximize,
+  Square
 } from 'lucide-react';
 
 const AppPage: React.FC = () => {
-  // 1. Tangkap URL gambar dari Landing Page
   const location = useLocation();
   const uploadedImageUrl = location.state?.imageUrl; 
-  
 
-// 2. State & Referensi untuk Canvas
+  // --- STATE & REFS UNTUK CANVAS ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const blurredCanvasRef = useRef<HTMLCanvasElement | null>(null); // 
+  const blurredCanvasRef = useRef<HTMLCanvasElement | null>(null); 
+  
   const [isDrawing, setIsDrawing] = useState(false);
   const [lastPos, setLastPos] = useState<{x: number, y: number} | null>(null); 
   
-  // 3. State Interaktivitas Dasar
+  // Ref khusus untuk mode Rectangle (Box Area)
+  const startPosRef = useRef<{x: number, y: number} | null>(null);
+  const currentPosRef = useRef<{x: number, y: number} | null>(null);
+  const savedImageDataRef = useRef<ImageData | null>(null); 
+
+  // --- STATE INTERAKTIVITAS & HISTORY ---
+  const [history, setHistory] = useState<string[]>([]);
   const [blurIntensity, setBlurIntensity] = useState(24); 
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [highPrecision, setHighPrecision] = useState(false);
-  const [activeTool, setActiveTool] = useState<'Blur' | 'Erase'>('Blur'); 
-  const [zoomScale, setZoomScale] = useState(1); // <-- TAMBAHAN State Zoom
+  const [activeTool, setActiveTool] = useState<'Blur' | 'Erase' | 'Rect'>('Blur'); 
+  const [zoomScale, setZoomScale] = useState(1); 
   
-  // 4. State Modal Download
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [history, setHistory] = useState<string[]>([]);
 
   // ==========================================
-  // LOGIKA CANVAS (MESIN BLUR MANUAL)
+  // LOGIKA CANVAS (MESIN BLUR & DRAWING)
   // ==========================================
 
-  // Fungsi memuat gambar ke Canvas
   const loadImageToCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -60,29 +62,28 @@ const AppPage: React.FC = () => {
       ctx.drawImage(img, 0, 0);
       (imageRef as any).current = img;
       
+      // Simpan riwayat pertama (gambar original)
+      setHistory([canvas.toDataURL()]);
+
+      // Buat versi blur kamera secara rahasia
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = img.width;
       offscreenCanvas.height = img.height;
       const offCtx = offscreenCanvas.getContext('2d');
       if (offCtx) {
-        offCtx.filter = 'blur(20px)'; // Tingkat keburaman asli kamera (bisa diatur)
+        offCtx.filter = 'blur(20px)'; 
         offCtx.drawImage(img, 0, 0);
         blurredCanvasRef.current = offscreenCanvas;
-        
       }
-      setHistory([canvas.toDataURL()]); // Simpan snapshot awal sebagai history pertama
     };
   }, [uploadedImageUrl]);
-  
 
-  // Muat gambar saat halaman pertama kali dibuka
   useEffect(() => {
     if (uploadedImageUrl) {
       loadImageToCanvas();
     }
   }, [uploadedImageUrl, loadImageToCanvas]);
 
-  // Kalkulasi posisi kursor mouse/touch yang akurat di atas Canvas
   const getCoordinates = (event: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -104,16 +105,21 @@ const AppPage: React.FC = () => {
     }
   };
 
-  // Mulai corat-coret
- const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+  const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     const coords = getCoordinates(event);
     setIsDrawing(true);
-    setLastPos(coords); // Ingat titik awal
+    setLastPos(coords);
+
+    // Persiapan memori untuk Rectangle
+    startPosRef.current = coords;
+    currentPosRef.current = coords;
+    if (canvasRef.current) {
+      savedImageDataRef.current = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
   };
 
-  // Proses menggoreskan blur
   const draw = (event: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !lastPos) return;
     const canvas = canvasRef.current;
@@ -121,72 +127,105 @@ const AppPage: React.FC = () => {
     if (!ctx || !canvas) return;
 
     const { x, y } = getCoordinates(event);
-    const radius = blurIntensity;
+    currentPosRef.current = { x, y };
 
-    // Kalkulasi jarak untuk menambal pixel agar coretan tidak putus-putus saat geser cepat
-    const dist = Math.hypot(x - lastPos.x, y - lastPos.y);
-    const steps = Math.max(1, Math.ceil(dist / (radius / 2)));
-
-    ctx.save();
-    ctx.beginPath();
-    
-    // Gambar rentetan lingkaran pemotong
-    for (let i = 0; i <= steps; i++) {
-      const cx = lastPos.x + (x - lastPos.x) * (i / steps);
-      const cy = lastPos.y + (y - lastPos.y) * (i / steps);
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    }
-    ctx.clip(); // Potong area brush tersebut
-
-    // Terapkan Gambar Blur (atau Gambar Asli jika pakai Eraser) secara instan ke area yang dipotong
-    const source = activeTool === 'Blur' ? blurredCanvasRef.current : imageRef.current;
-    if (source) {
-      ctx.drawImage(source, 0, 0);
-    }
-    ctx.restore();
-
-    setLastPos({ x, y }); // Update posisi biar goresannya nyambung
-  };
-  
-  // Berhenti menggambar
-  const stopDrawing = () => {
-    if (isDrawing) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        // Ambil snapshot canvas sekarang dan tambahkan ke history
-        const snapshot = canvas.toDataURL();
-        setHistory(prev => [...prev, snapshot]);
+    if (activeTool === 'Rect') {
+      // Preview Garis Putus-putus untuk Box Area
+      if (savedImageDataRef.current && startPosRef.current) {
+        ctx.putImageData(savedImageDataRef.current, 0, 0); 
+        ctx.beginPath();
+        ctx.strokeStyle = '#0D52E9';
+        ctx.setLineDash([8, 8]); 
+        ctx.lineWidth = 3;
+        ctx.rect(
+          startPosRef.current.x, 
+          startPosRef.current.y, 
+          x - startPosRef.current.x, 
+          y - startPosRef.current.y
+        );
+        ctx.stroke();
+        ctx.setLineDash([]); 
       }
+    } else {
+      // Mode Kuas (Brush/Eraser)
+      const radius = blurIntensity;
+      const dist = Math.hypot(x - lastPos.x, y - lastPos.y);
+      const steps = Math.max(1, Math.ceil(dist / (radius / 2)));
+
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const cx = lastPos.x + (x - lastPos.x) * (i / steps);
+        const cy = lastPos.y + (y - lastPos.y) * (i / steps);
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      }
+      ctx.clip(); 
+
+      const source = activeTool === 'Blur' ? blurredCanvasRef.current : imageRef.current;
+      if (source) {
+        ctx.drawImage(source, 0, 0);
+      }
+      ctx.restore();
+
+      setLastPos({ x, y }); 
     }
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    
+    // Terapkan efek saat kotak dilepas
+    if (activeTool === 'Rect' && canvas && ctx && savedImageDataRef.current && startPosRef.current && currentPosRef.current) {
+      ctx.putImageData(savedImageDataRef.current, 0, 0); 
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(
+        startPosRef.current.x, 
+        startPosRef.current.y, 
+        currentPosRef.current.x - startPosRef.current.x, 
+        currentPosRef.current.y - startPosRef.current.y
+      );
+      ctx.clip(); 
+      
+      if (blurredCanvasRef.current) {
+        ctx.drawImage(blurredCanvasRef.current, 0, 0);
+      }
+      ctx.restore();
+    }
+
+    // Simpan ke history untuk Undo
+    if (canvas) {
+      const snapshot = canvas.toDataURL();
+      setHistory(prev => [...prev, snapshot]);
+    }
+
     setIsDrawing(false);
     setLastPos(null);
+    startPosRef.current = null;
   };
 
   const handleUndo = () => {
-    if (history.length <= 1) return; // Jangan undo kalau cuma ada gambar original
+    if (history.length <= 1) return; 
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
 
-    // 1. Buang snapshot paling terakhir (kondisi sekarang)
     const newHistory = [...history];
     newHistory.pop(); 
-
-    // 2. Ambil snapshot sebelumnya
     const lastState = newHistory[newHistory.length - 1];
 
-    // 3. Gambar ulang ke canvas
     const img = new Image();
     img.src = lastState;
     img.onload = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height); // Bersihkan canvas dulu
-      ctx.drawImage(img, 0, 0); // Timpa dengan snapshot sebelumnya
-      setHistory(newHistory); // Update state history
+      ctx.clearRect(0, 0, canvas.width, canvas.height); 
+      ctx.drawImage(img, 0, 0); 
+      setHistory(newHistory); 
     };
   };
-
-  
 
   // ==========================================
   // LOGIKA DOWNLOAD
@@ -196,11 +235,10 @@ const AppPage: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
-    // Ubah hasil canvas (gambar asli + coretan blur) jadi file gambar
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = "PrivaShield_Protected_Image.png";
+    link.download = "Blurify_Protected_Image.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -226,18 +264,15 @@ const AppPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans flex flex-col h-screen overflow-hidden relative">
       
-      {/* Top Navigation */}
       <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 flex-shrink-0 z-10">
         <div className="flex items-center gap-2">
           <Shield className="text-[#0D52E9] w-6 h-6" />
-          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">PrivaShield</span>
+          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">Blurify AI</span>
         </div>
       </header>
 
-      {/* Main Layout Area */}
       <div className="flex flex-1 overflow-hidden">
         
-        {/* Center Workspace (Canvas) */}
         <main className="flex-1 flex flex-col bg-white overflow-hidden border-r border-gray-200">
           <div className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -250,11 +285,14 @@ const AppPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <button 
-                onClick={loadImageToCanvas} // Tombol Reset membersihkan canvas
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                onClick={() => {
+                  loadImageToCanvas();
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <RotateCcw className="w-4 h-4" /> Reset
+                <RotateCcw className="w-3.5 h-3.5" /> Clear All
               </button>
+
               <button 
                 onClick={handleUndo}
                 disabled={history.length <= 1}
@@ -266,16 +304,16 @@ const AppPage: React.FC = () => {
               >
                 <Undo className="w-3.5 h-3.5" /> Undo
               </button>
+
               <button 
                 onClick={handleDownloadClick}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#0D52E9] rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#0D52E9] rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
               >
                 <Download className="w-4 h-4" /> Download Image
               </button>
             </div>
           </div>
 
-          {/* Canvas Area */}
           <div 
             className="flex-1 relative overflow-hidden flex items-center justify-center p-4 sm:p-8"
             style={{
@@ -284,15 +322,11 @@ const AppPage: React.FC = () => {
               backgroundSize: `20px 20px`
             }}
           >
-            {/* INI CANVASSSSSSSSS CUY */}
             <div className="relative w-full h-full flex items-center justify-center overflow-auto touch-none">
-              
-              {/* Wrapper Zoom */}
               <div 
                 className="relative flex items-center justify-center transition-transform duration-200 ease-out"
                 style={{ transform: `scale(${zoomScale})`, transformOrigin: 'center' }}
               >
-                {/* Canvas Beneran: shadow & bg langsung nempel di sini biar ngepas sama ukuran gambar */}
                 <canvas 
                   ref={canvasRef}
                   className="max-w-full max-h-[80vh] object-contain shadow-2xl border border-gray-200 bg-white cursor-crosshair rounded-xl block"
@@ -311,10 +345,8 @@ const AppPage: React.FC = () => {
                    </div>
                 )}
               </div>
-
             </div>
 
-            {/* TOMBOL ZOOM MENGAMBANG DI BAWAH TENGAH */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 backdrop-blur text-white px-3 py-1.5 rounded-full shadow-2xl z-20">
               <button onClick={() => setZoomScale(prev => Math.max(0.5, prev - 0.2))} className="p-1 hover:bg-gray-700 rounded-full transition-colors">
                 <ZoomOut className="w-4 h-4" />
@@ -331,7 +363,6 @@ const AppPage: React.FC = () => {
           </div>
         </main>
 
-        {/* Right Sidebar (Tools) */}
         <aside className="w-80 bg-white flex flex-col flex-shrink-0 border-l border-gray-100">
           <div className="p-6 flex-1 overflow-y-auto">
             
@@ -339,20 +370,27 @@ const AppPage: React.FC = () => {
               <span className="text-[14px] font-bold text-gray-900 mb-4 block">
                 Manual Tools
               </span>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => setActiveTool('Blur')}
-                  className={`flex flex-col items-center justify-center py-5 rounded-xl border-2 transition-colors ${activeTool === 'Blur' ? 'border-[#0D52E9] bg-[#F8FAFF] text-[#0D52E9]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-colors ${activeTool === 'Blur' ? 'border-[#0D52E9] bg-[#F8FAFF] text-[#0D52E9]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <Brush className="w-6 h-6 mb-2" />
-                  <span className="text-sm font-bold">Blur Brush</span>
+                  <Brush className="w-5 h-5 mb-1.5" />
+                  <span className="text-[11px] font-bold">Brush</span>
+                </button>
+                <button 
+                  onClick={() => setActiveTool('Rect')}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-colors ${activeTool === 'Rect' ? 'border-[#0D52E9] bg-[#F8FAFF] text-[#0D52E9]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <Square className="w-5 h-5 mb-1.5" />
+                  <span className="text-[11px] font-bold">Box Area</span>
                 </button>
                 <button 
                   onClick={() => setActiveTool('Erase')}
-                  className={`flex flex-col items-center justify-center py-5 rounded-xl border-2 transition-colors ${activeTool === 'Erase' ? 'border-red-500 bg-red-50 text-red-500' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-colors ${activeTool === 'Erase' ? 'border-red-500 bg-red-50 text-red-500' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                 >
-                  <Eraser className="w-6 h-6 mb-2" />
-                  <span className="text-sm font-bold">Eraser</span>
+                  <Eraser className="w-5 h-5 mb-1.5" />
+                  <span className="text-[11px] font-bold">Eraser</span>
                 </button>
               </div>
             </div>
@@ -373,25 +411,20 @@ const AppPage: React.FC = () => {
             </div>
 
             <div className="space-y-6 mb-8">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
                 <span className="text-sm font-medium text-gray-700">Show Annotations</span>
-                <button 
-                  onClick={() => setShowAnnotations(!showAnnotations)}
-                  className={`w-11 h-6 rounded-full flex items-center px-1 transition-colors ${showAnnotations ? 'bg-[#0D52E9]' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${showAnnotations ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                <button disabled className="w-11 h-6 rounded-full flex items-center px-1 bg-gray-300">
+                  <div className="w-4 h-4 bg-white rounded-full"></div>
                 </button>
               </div>
               
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
                 <span className="text-sm font-medium text-gray-700">High-Precision Mode</span>
-                <button 
-                  onClick={() => setHighPrecision(!highPrecision)}
-                  className={`w-11 h-6 rounded-full flex items-center px-1 transition-colors ${highPrecision ? 'bg-[#0D52E9]' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${highPrecision ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                <button disabled className="w-11 h-6 rounded-full flex items-center px-1 bg-gray-300">
+                  <div className="w-4 h-4 bg-white rounded-full"></div>
                 </button>
               </div>
+              <p className="text-[10px] text-gray-400 mt-2">AI features are disabled in Manual Mode.</p>
             </div>
 
           </div>
@@ -405,9 +438,8 @@ const AppPage: React.FC = () => {
 
       </div>
 
-      {/* Footer */}
       <footer className="h-12 bg-[#F8F9FA] border-t border-gray-200 flex items-center justify-between px-6 flex-shrink-0 text-[13px] text-gray-600 font-medium">
-        <span>© 2026 PrivaShield AI. Secure Image Processing.</span>
+        <span>© 2026 Blurify AI. Secure Image Processing.</span>
       </footer>
 
       {isDownloading && <DownloadModal progress={downloadProgress} />}

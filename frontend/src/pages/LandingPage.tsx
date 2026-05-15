@@ -85,6 +85,7 @@ const LandingPage: React.FC = () => {
             </section>
 
             {/* --- DEMO & FEATURES SECTION BAWAAN  --- */}
+            
             <section className="w-full max-w-6xl px-4 py-8 mt-4">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
                 <div className="grid md:grid-cols-2 gap-8">
