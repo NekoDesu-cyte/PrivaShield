@@ -39,22 +39,30 @@ pip install -r requirements.txt
 python -m spacy download id_core_news_lg
 ```
 
-### 2. Run with Automation
-We use `asc` for easy task execution:
-```bash
-# Test the AI NER logic
-asc workflow run test-ner
+### 2. Run the Backend
+We provide scripts to handle the environment setup automatically:
 
-# Start the backend server
-asc workflow run run-backend
+**On macOS/Linux:**
+```bash
+./run-backend.sh
 ```
 
-### 3. Manual Server Execution
-To run the server manually, ensure you set the `PYTHONPATH` so the `app` module can be found:
+**On Windows:**
+```cmd
+run-backend.bat
+```
+
+### 3. Manual Server Execution (Advanced)
+If you prefer not to use the scripts, ensure you set the `PYTHONPATH` so the `app` module can be found:
 ```bash
-# From the project root directory
+# macOS/Linux
 export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
 source backend/venv/bin/activate
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Windows (Command Prompt)
+set PYTHONPATH=%PYTHONPATH%;%CD%\backend
+backend\venv\Scripts\activate
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
