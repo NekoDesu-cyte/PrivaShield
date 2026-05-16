@@ -180,8 +180,13 @@ const AppPage: React.FC = () => {
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");
+<<<<<<< HEAD
     link.href = dataUrl;
     link.download = "Blurify_Protected_Image.png";
+=======
+    link.href = "https://via.placeholder.com/1080.png"; // Ganti dengan URL image hasil proses nanti
+    link.download = "BlurifyAI_Protected_Image.png";
+>>>>>>> origin/feat/integrate-ocr
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
