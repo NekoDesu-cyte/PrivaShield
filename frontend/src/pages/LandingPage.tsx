@@ -16,7 +16,7 @@ const LandingPage: React.FC = () => {
 
   // FUNGSI INI AKAN DIKIRIM KE UPLOAD AREA
   const processUploadedFile = async (file: File) => {
-    // 1. Cek Satpam
+    // Cek tipe dan ukuran file dulu sebelum upload
     const check = validateFile(file);
     if (!check.valid) {
       if (check.errorType === 'INVALID_TYPE') {
@@ -27,71 +27,42 @@ const LandingPage: React.FC = () => {
       return;
     }
 
-    // 2. Lolos Pengecekan, Mulai Upload
+    //  Lolos Pengecekan, Mulai Upload
     setIsScanning(true);
     setProgress(15); 
 
     const formData = new FormData();
     formData.append("file", file);
 
-<<<<<<< HEAD
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/upload", {
+      const response = await fetch("http://127.0.0.1:8000/api/image/process", {
         method: "POST",
         body: formData,
-=======
-  const handleResetCanvas = () => {
-    loadImageToCanvas();
-  };
-
-  // =========================================================
-  // LOGIKA DOWNLOAD
-  // =========================================================
-
-  const triggerDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Ambil gambar langsung dari canvas beserta editan blurnya
-    const dataUrl = canvas.toDataURL("image/png");
-    
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = "BlurifyAI_Protected_Image.png";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadClick = () => {
-    setIsDownloading(true);
-    setDownloadProgress(0);
-
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          triggerDownload(); 
-          
-          setTimeout(() => {
-            setIsDownloading(false); 
-          }, 1500); 
-          
-          return 100;
-        }
-        return prev + 10;
->>>>>>> origin/feat/integrate-ocr
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setProgress(100);
 
+      //  Bikin URL bayangan dari file gambar yang ada di komputer user
+      const localImageUrl = URL.createObjectURL(file);
+
       setTimeout(() => {
-        navigate('/app', { state: { imageUrl: data.image_url } });
+        // Pindah halaman dengan membawa URL lokal DAN data AI dari backend
+        navigate('/app', { 
+          state: { 
+            imageUrl: localImageUrl, 
+            aiData: data 
+          } 
+        });
       }, 500);
 
     } catch (error) {
       console.error("Gagal upload:", error);
-      setAlert({ isOpen: true, type: 'error', title: 'Connection Error', message: 'Gagal koneksi ke server Backend! Pastikan FastAPI sudah nyala.' });
+      setAlert({ isOpen: true, type: 'error', title: 'Connection Error', message: 'Gagal komunikasi dengan AI Server. Cek apakah backend sudah jalan.' });
       setIsScanning(false);
     }
   };
@@ -102,11 +73,7 @@ const LandingPage: React.FC = () => {
       <nav className="flex items-center justify-between px-8 py-5 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <Shield className="text-[#0D52E9] w-6 h-6" />
-<<<<<<< HEAD
           <span className="font-bold text-xl tracking-tight">Blurify AI</span>
-=======
-          <span className="font-bold text-xl tracking-tight text-[#0D52E9]">Blurify AI</span>
->>>>>>> origin/feat/integrate-ocr
         </div>
       </nav>
 
@@ -219,7 +186,6 @@ const LandingPage: React.FC = () => {
         </>
       )}
 
-<<<<<<< HEAD
       {/* --- WUJUD FISIK MODAL SATPAM --- */}
       {alert && (
         <AlertModal 
@@ -232,46 +198,6 @@ const LandingPage: React.FC = () => {
           onCancel={alert.type === 'warning' ? () => setAlert(null) : undefined}
         />
       )}
-=======
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-4 text-sm font-bold">
-                <span>Brush Size</span>
-                <span className="text-[#0D52E9]">{blurIntensity}px</span>
-              </div>
-              <input 
-                type="range" min="5" max="80" value={blurIntensity}
-                onChange={(e) => setBlurIntensity(Number(e.target.value))}
-                className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#0D52E9]"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-2">
-                 <span>Small</span>
-                 <span>Very Large</span>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-gray-600 text-xs leading-relaxed space-y-2">
-                <p className="font-semibold text-gray-800">Tips:</p>
-                <p>Gunakan <span className='font-mono'>Blur Brush</span> untuk menutupi informasi sensitif seperti wajah atau teks.</p>
-                <p>Gunakan <span className='font-mono text-red-600'>Eraser Tool</span> jika goresan blur abang salah atau mengenai area yang salah.</p>
-            </div>
-
-          </div>
-
-          <div className="pt-6 mt-auto bg-white border-t border-gray-100">
-            <p className="text-xs text-center text-gray-400 leading-relaxed px-2">
-              Blurify AI manual processing happens entirely in your browser. No image data is sent back to the server after this point.
-            </p>
-          </div>
-        </aside>
-
-      </div>
-
-      <footer className="h-10 bg-[#F8F9FA] border-t border-gray-200 flex items-center justify-between px-6 text-[11px] text-gray-500 font-medium flex-shrink-0 z-10 relative">
-        <span>© 2024 Blurify AI. Secure Image Processing.</span>
-      </footer>
-
-      {isDownloading && <DownloadModal progress={downloadProgress} />}
->>>>>>> origin/feat/integrate-ocr
     </div>
   );
 };

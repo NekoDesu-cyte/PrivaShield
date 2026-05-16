@@ -9,6 +9,7 @@ import ZoomControls from '../components/EditorZoomControls';
 const AppPage: React.FC = () => {
   const location = useLocation();
   const uploadedImageUrl = location.state?.imageUrl; 
+  const aiData = location.state?.aiData;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -43,18 +44,39 @@ const AppPage: React.FC = () => {
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       (imageRef as any).current = img;
-      
-      setHistory([canvas.toDataURL()]);
 
+      //  Buat versi blur kamera secara rahasia
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = img.width;
       offscreenCanvas.height = img.height;
       const offCtx = offscreenCanvas.getContext('2d');
+      
       if (offCtx) {
-        offCtx.filter = 'blur(20px)'; 
+        offCtx.filter = 'blur(20px)'; // Ketebalan blur
         offCtx.drawImage(img, 0, 0);
         blurredCanvasRef.current = offscreenCanvas;
+
+        if (aiData && aiData.detected_entities && aiData.detected_entities.length > 0) {
+          ctx.save();
+          ctx.beginPath();
+          
+          // Looping semua kotak merah hasil deteksi AI
+          aiData.detected_entities.forEach((entity: any) => {
+            const [x, y, w, h] = entity.bbox;
+            // Gambar kotak virtual di koordinat PII (Nama/No HP)
+            ctx.rect(x, y, w, h);
+          });
+          
+          ctx.clip(); // Potong kanvas di area kotak-kotak AI
+          ctx.drawImage(offscreenCanvas, 0, 0); //  efek blur ke area potongan!
+          ctx.restore();
+          
+          console.log(`Berhasil nge-blur otomatis ${aiData.detected_entities.length} data sensitif! 🛡️`);
+        }
       }
+      
+      // Simpan riwayat pertama setelah blur otomatis
+      setHistory([canvas.toDataURL()]);
     };
   }, [uploadedImageUrl]);
 
@@ -180,13 +202,8 @@ const AppPage: React.FC = () => {
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
     const link = document.createElement("a");
-<<<<<<< HEAD
     link.href = dataUrl;
     link.download = "Blurify_Protected_Image.png";
-=======
-    link.href = "https://via.placeholder.com/1080.png"; // Ganti dengan URL image hasil proses nanti
-    link.download = "BlurifyAI_Protected_Image.png";
->>>>>>> origin/feat/integrate-ocr
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

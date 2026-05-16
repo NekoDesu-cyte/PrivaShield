@@ -12,4 +12,5 @@ __pycache__/
 backend/uploads/
 backend/repro_upload.py
 backend/test_fail.py
+/uploads
 .env
