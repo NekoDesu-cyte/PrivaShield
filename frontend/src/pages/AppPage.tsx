@@ -34,27 +34,32 @@ const AppPage: React.FC = () => {
   const loadImageToCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !uploadedImageUrl) return;
+    
+    // Kalau nggak ada URL dari halaman depan, stop.
+    if (!ctx || !uploadedImageUrl) {
+      console.log("URL Gambar kosong! Pastikan upload dari halaman depan ya bang.");
+      return;
+    }
 
     const img = new Image();
-    img.crossOrigin = "Anonymous"; 
-    img.src = uploadedImageUrl;
-    
+    // (Baris crossOrigin sudah kita buang jauh-jauh ke laut)
+
+    // Kita pasang jaring penangkap gambarnya DULU sebelum disuruh muat
     img.onload = () => {
+      console.log("Gambar sukses masuk ke memori Kanvas!");
       if (!canvas) return;
       canvas.width = img.width;
       canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0); // Gambar aslinya dimunculin!
       (imageRef as any).current = img;
 
-      //  Buat versi blur kamera secara rahasia
       const offscreenCanvas = document.createElement('canvas');
       offscreenCanvas.width = img.width;
       offscreenCanvas.height = img.height;
       const offCtx = offscreenCanvas.getContext('2d');
       
       if (offCtx) {
-        offCtx.filter = 'blur(20px)'; // Ketebalan blur
+        offCtx.filter = 'blur(20px)';
         offCtx.drawImage(img, 0, 0);
         blurredCanvasRef.current = offscreenCanvas;
 
@@ -62,23 +67,21 @@ const AppPage: React.FC = () => {
           ctx.save();
           ctx.beginPath();
           
-          // Looping semua kotak merah hasil deteksi AI
           aiData.detected_entities.forEach((entity: any) => {
             const [x, y, w, h] = entity.bbox;
-            // Gambar kotak virtual di koordinat PII (Nama/No HP)
             ctx.rect(x, y, w, h);
           });
           
-          ctx.clip(); // Potong kanvas di area kotak-kotak AI
-          ctx.drawImage(offscreenCanvas, 0, 0); //  efek blur ke area potongan!
+          ctx.clip(); 
+          ctx.drawImage(offscreenCanvas, 0, 0); 
           ctx.restore();
           
-          console.log(`Berhasil nge-blur otomatis ${aiData.detected_entities.length} data sensitif! 🛡️`);
+          console.log(`MANTAP! Nge-blur otomatis ${aiData.detected_entities.length} data sensitif! 🛡️`);
         }
       }
       
-      // Simpan riwayat pertama setelah blur otomatis
       setHistory([canvas.toDataURL()]);
+
       setTimeout(() => {
         if (canvasRef.current) {
           setCanvasLayout({
@@ -88,7 +91,22 @@ const AppPage: React.FC = () => {
         }
       }, 100);
     };
-  }, [uploadedImageUrl]);
+
+    // Detektor kalau gambarnya ternyata gagal dibaca browser
+    img.onerror = (err) => {
+      console.error("Waduh! Browser gagal ngebaca file gambarnya:", err);
+    };
+
+    // BARU kita suruh muat URL-nya di paling bawah
+    img.src = uploadedImageUrl; 
+    
+  }, [uploadedImageUrl, aiData]);
+// KODE PENTING, KLO INI ILANG GAMBAR GA TAMPIL DI CANVAS, JANGAN DI OTAK ATIK BOSSQUE
+  useEffect(() => {
+    if (uploadedImageUrl) {
+      loadImageToCanvas();
+    }
+  }, [uploadedImageUrl, loadImageToCanvas]);
 
   useEffect(() => {
     const handleResize = () => {

@@ -36,8 +36,8 @@ async def process_image(file: UploadFile = File(...)):
         detected_entities = []
         
         # 1. First Pass: Aggregate all OCR text to detect entities in context
-        full_text = " ".join(all_ocr_text)
-        global_pii = ner.detect_pii_granular(full_text)
+        # full_text = " ".join(all_ocr_text)
+        # global_pii = ner.detect_pii_granular(full_text)
         
         # 2. Map global detection back to OCR blocks for precise BBoxes
         # This helps detect entities split across lines or fragments
