@@ -6,10 +6,14 @@ interface EditorSidebarProps {
   setActiveTool: (tool: 'Blur' | 'Erase' | 'Rect') => void;
   blurIntensity: number;
   setBlurIntensity: (val: number) => void;
+  // KABEL REMOT KONTROL BARU
+  showAnnotations: boolean;
+  setShowAnnotations: (val: boolean) => void;
 }
 
 const EditorSidebar: React.FC<EditorSidebarProps> = ({ 
-  activeTool, setActiveTool, blurIntensity, setBlurIntensity 
+  activeTool, setActiveTool, blurIntensity, setBlurIntensity,
+  showAnnotations, setShowAnnotations // TERIMA KABELNYA
 }) => {
   return (
     <aside className="w-80 bg-white flex flex-col flex-shrink-0 border-l border-gray-100">
@@ -55,10 +59,16 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
         </div>
 
         <div className="space-y-6 mb-8">
-          <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
+          {/* SAKLAR SHOW ANNOTATION YANG SUDAH HIDUP */}
+          <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Show Annotations</span>
-            <button disabled className="w-11 h-6 rounded-full flex items-center px-1 bg-gray-300">
-              <div className="w-4 h-4 bg-white rounded-full"></div>
+            <button 
+              onClick={() => setShowAnnotations(!showAnnotations)}
+              className={`w-11 h-6 rounded-full flex items-center px-1 transition-all duration-200 ease-in-out ${
+                showAnnotations ? 'bg-[#0D52E9] justify-end' : 'bg-gray-300 justify-start'
+              }`}
+            >
+              <div className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform"></div>
             </button>
           </div>
           <div className="flex items-center justify-between opacity-50 cursor-not-allowed">
@@ -67,7 +77,7 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
               <div className="w-4 h-4 bg-white rounded-full"></div>
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-2">AI features are disabled in Manual Mode.</p>
+          <p className="text-[10px] text-gray-400 mt-2">AI features are managed in sync with backend.</p>
         </div>
       </div>
 

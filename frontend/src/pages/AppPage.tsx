@@ -25,6 +25,8 @@ const AppPage: React.FC = () => {
   const [blurIntensity, setBlurIntensity] = useState(24); 
   const [activeTool, setActiveTool] = useState<'Blur' | 'Erase' | 'Rect'>('Blur'); 
   const [zoomScale, setZoomScale] = useState(1); 
+  const [showAnnotations, setShowAnnotations] = useState(true);
+  const [canvasLayout, setCanvasLayout] = useState({ width: 0, height: 0 });
   
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -77,12 +79,26 @@ const AppPage: React.FC = () => {
       
       // Simpan riwayat pertama setelah blur otomatis
       setHistory([canvas.toDataURL()]);
+      setTimeout(() => {
+        if (canvasRef.current) {
+          setCanvasLayout({
+            width: canvasRef.current.clientWidth,
+            height: canvasRef.current.clientHeight
+          });
+        }
+      }, 100);
     };
   }, [uploadedImageUrl]);
 
   useEffect(() => {
-    if (uploadedImageUrl) loadImageToCanvas();
-  }, [uploadedImageUrl, loadImageToCanvas]);
+    const handleResize = () => {
+      if (canvasRef.current) {
+        setCanvasLayout({ width: canvasRef.current.clientWidth, height: canvasRef.current.clientHeight });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getCoordinates = (event: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -272,6 +288,31 @@ const AppPage: React.FC = () => {
                   onTouchMove={draw}
                   onTouchEnd={stopDrawing}
                 />
+                {/* === LAYERS KOTAK ANOTASI DIGITAL === */}
+                {showAnnotations && canvasLayout.width > 0 && canvasRef.current && aiData?.detected_entities?.map((entity: any, index: number) => {
+                  const origWidth = canvasRef.current?.width || 1;
+                  const origHeight = canvasRef.current?.height || 1;
+                  
+                  // Menghitung rasio skala dimensi layout vs resolusi piksel asli
+                  const scaleX = canvasLayout.width / origWidth;
+                  const scaleY = canvasLayout.height / origHeight;
+                  const [x, y, w, h] = entity.bbox;
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="absolute border-2 border-dashed border-[#0D52E9] bg-[#0D52E9]/5 pointer-events-none z-20 rounded-sm transition-all"
+                      style={{
+                        left: `${x * scaleX}px`, top: `${y * scaleY}px`,
+                        width: `${w * scaleX}px`, height: `${h * scaleY}px`,
+                      }}
+                    >
+                      <span className="absolute -top-5 left-0 bg-[#0D52E9] text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap tracking-wide uppercase">
+                        {entity.label}
+                      </span>
+                    </div>
+                  );
+                })}
                 {!uploadedImageUrl && (
                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 backdrop-blur-sm text-gray-500 text-sm font-medium z-10 rounded-xl">
                       No image uploaded. Please go back and upload an image.
@@ -290,7 +331,9 @@ const AppPage: React.FC = () => {
           activeTool={activeTool} 
           setActiveTool={setActiveTool} 
           blurIntensity={blurIntensity} 
-          setBlurIntensity={setBlurIntensity} 
+          setBlurIntensity={setBlurIntensity}
+          showAnnotations={showAnnotations}      
+          setShowAnnotations={setShowAnnotations} 
         />
       </div>
 
