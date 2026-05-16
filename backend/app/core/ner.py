@@ -36,7 +36,7 @@ class NERProcessor:
         # 1. Regex check with offsets
         advanced_patterns = {
             "EMAIL": r'[a-zA-Z0-9._%+-]+\s*(?:@|at)\s*[a-zA-Z0-9.-]+\s*(?:[\.\,]\s*(?:co|id|com|net|org|edu|gov|io|ai)\b|(?:\.com|net|org|edu|gov|io|ai|id)|[a-z]{2,4})?',
-            "PHONE": r'(?:(?:\+62)|0)8[0-9\-\s]{8,13}',
+            "PHONE": r'(?<!\d)(?:\+?\s*62|0)\s*8(?:[\s\-./]*\d){8,12}(?!\d)',
             "ACCOUNT": r'\b\d{10,16}\b',
             "NIK": r'\b\d{16}\b',
             "EMP_ID": r'\b[A-Z]{2,4}-\d{4}-\d{4,}\b', 
