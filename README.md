@@ -65,6 +65,27 @@ backend\venv\Scripts\activate
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+## 🚀 Deployment (Production)
+
+The backend can be deployed to a GCP Compute Engine VM with a single bootstrap script.
+
+```bash
+# On the VM, after cloning the repo to /opt/PrivaShield
+cd /opt/PrivaShield
+bash deploy/setup-vm.sh
+```
+
+This installs Python 3.12 and system dependencies, sets up the virtualenv, pre-downloads
+the AI models, and configures a `systemd` service behind an nginx reverse proxy
+(port 80 → uvicorn on 127.0.0.1:8000). The script is idempotent — safe to re-run after a
+`git pull`.
+
+For the full walkthrough — VM + firewall creation, external testing, day-to-day operations,
+and cost control — see **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
+
+> A `backend/Dockerfile` is also included for container-based deployments (e.g. Cloud Run)
+> as an alternative to the VM setup.
+
 ## 🧪 Testing & Development
 
 ### Jupyter Notebook
