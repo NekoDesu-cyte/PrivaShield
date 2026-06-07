@@ -114,6 +114,68 @@ gcloud compute instances describe blurify-backend --zone "$ZONE" --format='get(t
 
 ---
 
+## Step 5 — Enable HTTPS (recommended)
+
+Let's Encrypt issues free, auto-renewing certificates, but it needs a **stable IP** and a
+**hostname** (it will not issue for a bare IP). If you don't own a domain, `sslip.io` gives
+you a free hostname derived from your IP (e.g. `203-0-113-5.sslip.io`).
+
+**1. Reserve a static IP** so it survives stop/start (and certs don't break on restart):
+
+```bash
+# from your laptop — region has NO trailing zone letter (e.g. asia-southeast2)
+gcloud compute addresses create blurify-ip --region YOUR_REGION
+gcloud compute addresses describe blurify-ip --region YOUR_REGION --format='get(address)'
+```
+
+**2. Attach it to the VM** (swaps the ephemeral IP — brief connectivity blip):
+
+```bash
+# confirm the access-config name first (often "external-nat")
+gcloud compute instances describe blurify-backend --zone "$ZONE" \
+  --format='get(networkInterfaces[0].accessConfigs[0].name)'
+
+gcloud compute instances delete-access-config blurify-backend \
+  --zone "$ZONE" --access-config-name "external-nat"
+gcloud compute instances add-access-config blurify-backend \
+  --zone "$ZONE" --access-config-name "external-nat" --address YOUR_STATIC_IP
+```
+
+**3. Open port 443:**
+
+```bash
+gcloud compute firewall-rules create allow-https \
+  --allow tcp:443 --source-ranges 0.0.0.0/0 --target-tags http-server
+```
+
+**4. Point a hostname at the IP.** Either set your domain's `A` record to `YOUR_STATIC_IP`,
+or use the `sslip.io` form `YOUR-STATIC-IP-with-dashes.sslip.io` (no setup needed).
+
+**5. Issue the certificate (on the VM):**
+
+```bash
+# set nginx server_name to your hostname (replaces the default "_")
+sudo sed -i 's/server_name _;/server_name YOUR_HOST;/' /etc/nginx/sites-available/blurify
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d YOUR_HOST
+```
+
+When prompted, enter an email, accept the terms, and **choose to redirect HTTP→HTTPS**.
+Certbot adds the `443` server block and installs a renewal timer (`systemctl status certbot.timer`).
+
+**6. Verify (from your laptop):**
+
+```bash
+curl https://YOUR_HOST/health
+```
+
+> Note: a reserved static IP is free while attached to a **running** VM, but costs ~$0.01/hr
+> while the VM is **stopped**.
+
+---
+
 ## Operations
 
 | Action | Command (on the VM) |
@@ -150,7 +212,7 @@ stop/start unless you reserve a static IP.
 
 ## Optional hardening (not required to run)
 
-- **HTTPS**: point a domain at the VM IP, then `sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx`.
+- **HTTPS**: see [Step 5 — Enable HTTPS](#step-5--enable-https-recommended) above.
 - **CORS**: `backend/main.py` uses `allow_origins=["*"]` — tighten to your frontend's
   domain before production.
 - **Upload cleanup**: processed images accumulate in `/opt/PrivaShield/uploads`; add a

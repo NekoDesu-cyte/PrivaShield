@@ -80,8 +80,9 @@ the AI models, and configures a `systemd` service behind an nginx reverse proxy
 (port 80 → uvicorn on 127.0.0.1:8000). The script is idempotent — safe to re-run after a
 `git pull`.
 
-For the full walkthrough — VM + firewall creation, external testing, day-to-day operations,
-and cost control — see **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
+For the full walkthrough — VM + firewall creation, external testing, **HTTPS via Let's
+Encrypt** (static IP + certbot), day-to-day operations, and cost control — see
+**[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
 > A `backend/Dockerfile` is also included for container-based deployments (e.g. Cloud Run)
 > as an alternative to the VM setup.
