@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.DS_Store
+uploads/
+test/
+repro_upload.py
+test_fail.py
+*.md
