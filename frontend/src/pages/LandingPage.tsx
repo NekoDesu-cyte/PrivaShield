@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AiScanningOverlay from "../components/AiScanningOverlay";
 import AlertModal from "../components/AlertModal";
-import UploadArea from "../components/UploadArea"; // <-- IMPORT KOMPONEN BARU
+import UploadArea from "../components/UploadArea"; 
 import { validateFile } from "../utils/fileValidation";
 import {
-  Shield,
   UserCircle,
   Phone,
   Wand2,
