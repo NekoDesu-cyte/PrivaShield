@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AiScanningOverlay from "../components/AiScanningOverlay";
 import AlertModal from "../components/AlertModal";
-import UploadArea from "../components/UploadArea"; 
+import UploadArea from "../components/UploadArea";
 import { validateFile } from "../utils/fileValidation";
 import {
   UserCircle,
@@ -58,8 +58,11 @@ const LandingPage: React.FC = () => {
     const formData = new FormData();
     formData.append("file", file);
 
+    // Req POST ke backend untuk diproses AI
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/image/process", {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+      const response = await fetch(`${API_BASE_URL}/api/image/process`, {
         method: "POST",
         body: formData,
       });
